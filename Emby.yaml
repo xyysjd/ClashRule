@@ -2,6 +2,7 @@
 payload:
 #  - PROCESS-NAME,electron.exe
   - DOMAIN-SUFFIX,jmsooo.com
+  - DOMAIN-SUFFIX,emby.pro
   - DOMAIN-SUFFIX,ccemby.tk
   - DOMAIN,emby2.misakaf.org
   - DOMAIN,cdn2.misakaf.org 
