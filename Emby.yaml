@@ -10,3 +10,6 @@ payload:
   - DOMAIN,cc.carryz.net
   - DOMAIN,789.123456.al
   - DOMAIN,temby.285286.xyz
+  - DOMAIN-SUFFIX,emby.ws
+  - DOMAIN-SUFFIX,infinityfly.top
+
