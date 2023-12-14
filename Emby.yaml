@@ -1,6 +1,5 @@
 # 内容：Emby Proxy
 payload:
-#  - PROCESS-NAME,electron.exe
   - DOMAIN-SUFFIX,jmsooo.com
   - DOMAIN-SUFFIX,emby.pro
   - DOMAIN-SUFFIX,ccemby.tk
@@ -9,7 +8,9 @@ payload:
   - DOMAIN,push-kr.misakaf.org
   - DOMAIN,cc.carryz.net
   - DOMAIN,789.123456.al
+  - DOMAIN,a.nel.cloudflare.com
   - DOMAIN,temby.285286.xyz
   - DOMAIN-SUFFIX,emby.ws
   - DOMAIN-SUFFIX,infinityfly.top
-
+  - IP-CIDR,129.150.48.48/24
+  - IP-CIDR,74.50.80.23/24
