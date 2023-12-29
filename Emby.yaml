@@ -12,5 +12,5 @@ payload:
   - DOMAIN,temby.285286.xyz
   - DOMAIN-SUFFIX,emby.ws
   - DOMAIN-SUFFIX,infinityfly.top
-  - IP-CIDR,129.150.48.48/24
-  - IP-CIDR,74.50.80.23/24
+  - IP-CIDR,129.150.48.48/32,no-resolve
+  - IP-CIDR,74.50.80.23/32,no-resolve
