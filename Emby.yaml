@@ -1,6 +1,7 @@
 # 内容：Emby Proxy
 payload:
   - DOMAIN-SUFFIX,jmsooo.com
+  - DOMAIN-SUFFIX,emby.wtf
   - DOMAIN-SUFFIX,emby.pro
   - DOMAIN-SUFFIX,ccemby.tk
   - DOMAIN,emby2.misakaf.org
@@ -14,3 +15,4 @@ payload:
   - DOMAIN-SUFFIX,infinityfly.top
   - IP-CIDR,129.150.48.48/32,no-resolve
   - IP-CIDR,74.50.80.23/32,no-resolve
+  - IP-CIDR,89.58.18.111/32,no-resolve
