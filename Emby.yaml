@@ -12,6 +12,7 @@ payload:
   - DOMAIN,a.nel.cloudflare.com
   - DOMAIN,temby.285286.xyz
   - DOMAIN-SUFFIX,emby.ws
+  - DOMAIN-SUFFIX,9521732.xyz
   - DOMAIN-SUFFIX,infinityfly.top
   - IP-CIDR,129.150.48.48/32,no-resolve
   - IP-CIDR,74.50.80.23/32,no-resolve
