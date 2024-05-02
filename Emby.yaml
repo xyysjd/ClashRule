@@ -8,6 +8,8 @@ payload:
   - DOMAIN,cdn2.misakaf.org
   - DOMAIN,push-kr.misakaf.org
   - DOMAIN,cc.carryz.net
+  - DOMAIN,coemn.com
+  - DOMAIN,embyplus.org
   - DOMAIN,789.123456.al
   - DOMAIN,a.nel.cloudflare.com
   - DOMAIN,temby.285286.xyz
