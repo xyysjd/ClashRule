@@ -1,3 +1,4 @@
 # 内容：国内流量
 payload:
   - DOMAIN-SUFFIX,123pan.com
+  - DOMAIN-SUFFIX,lanzout.com
