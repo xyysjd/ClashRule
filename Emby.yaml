@@ -1,6 +1,5 @@
 # 内容：Emby Proxy
 payload:
-  - DOMAIN-SUFFIX,jmsooo.com
   - DOMAIN-SUFFIX,jmsuper.com
   - DOMAIN-SUFFIX,emby.wtf
   - DOMAIN-SUFFIX,emby.pro
