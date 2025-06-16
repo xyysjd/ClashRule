@@ -5,7 +5,7 @@ payload:
   - DOMAIN-SUFFIX,emby.pro
   - DOMAIN-SUFFIX,ccemby.tk
   - DOMAIN,cc.carryz.net
-  - DOMAIN,embyplus.org
+  - DOMAIN-SUFFIX,embyplus.org
   - DOMAIN,789.123456.al
   - DOMAIN,a.nel.cloudflare.com
   - DOMAIN,temby856.285286.xyz
