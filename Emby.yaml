@@ -13,6 +13,7 @@ payload:
   - DOMAIN-SUFFIX,9521732.xyz
   - DOMAIN-SUFFIX,infinityfly.top
   - DOMAIN-SUFFIX,coemn.com
+  - DOMAIN-SUFFIX,feiniu.lol
   - IP-CIDR,129.150.48.48/32,no-resolve
   - IP-CIDR,74.50.80.23/32,no-resolve
   - IP-CIDR,89.58.18.111/32,no-resolve
