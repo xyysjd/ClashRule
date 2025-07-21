@@ -1,5 +1,6 @@
 # 内容：Emby Proxy
 payload:
+  - DOMAIN-SUFFIX,lite.cn2gias.uk
   - DOMAIN-SUFFIX,emby.jingzhe.pro
   - DOMAIN-SUFFIX,zoxfree.3767483.xyz
   - DOMAIN-SUFFIX,emby1.123456789.lol
