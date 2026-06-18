@@ -1,6 +1,8 @@
 # 内容：Emby Proxy
 payload:
   - DOMAIN-SUFFIX,abetsy.lzjss.eu.org
+  - DOMAIN-SUFFIX,hohai.eu.org
+  - DOMAIN-SUFFIX,shrekmedia.org
   - DOMAIN-SUFFIX,lite.cn2gias.uk
   - DOMAIN-SUFFIX,emby.jingzhe.pro
   - DOMAIN-SUFFIX,zoxfree.3767483.xyz
