@@ -1,4 +1,4 @@
-# 内容：国内流量
+# 内容：trakt
 payload:
   - DOMAIN-SUFFIX,trakt.tv
   - DOMAIN-SUFFIX,tmdb.org
