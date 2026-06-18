@@ -1,3 +1,5 @@
 # 内容：国内流量
 payload:
   - DOMAIN-SUFFIX,trakt.tv
+  - DOMAIN-SUFFIX,tmdb.org
+  - DOMAIN-SUFFIX,themoviedb.org  
