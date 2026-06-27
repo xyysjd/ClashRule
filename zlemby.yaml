@@ -1,3 +1,5 @@
 # 内容：EMBY直连
 payload:
   - DOMAIN-SUFFIX,theluyuan.com
+  - DOMAIN-SUFFIX,hohai.eu.org
+  - DOMAIN-SUFFIX,shrekmedia.org  
