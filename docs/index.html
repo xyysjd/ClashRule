@@ -263,20 +263,54 @@ async function ghApi(path, method, body) {
   if (body) {
     headers['Content-Type'] = 'application/json';
   }
-  const url = 'https://api.github.com/repos/' + state.repo + '/' + path;
+  // 请求仓库根信息时 path 可能是空字符串，直接用仓库 API
+  var url;
+  if (!path || path === '') {
+    url = 'https://api.github.com/repos/' + state.repo;
+  } else {
+    url = 'https://api.github.com/repos/' + state.repo + '/' + path;
+  }
+  // 去掉路径末尾多余的 /
+  if (url.endsWith('/')) url = url.slice(0, -1);
   const res = await fetch(url, { method: method, headers: headers, body: body ? JSON.stringify(body) : null });
   if (!res.ok) {
-    const err = await res.json().catch(function() { return {}; });
-    throw new Error(err.message || 'HTTP ' + res.status);
+    // 尝试读取详细的错误信息
+    try {
+      const err = await res.json();
+      throw new Error(err.message + ' (HTTP ' + res.status + ')');
+    } catch(parseErr) {
+      if (parseErr instanceof Error && parseErr.message !== res.statusText) throw parseErr;
+      throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+    }
   }
   return res.json();
+}
+
+/** UTF-8 安全的 base64 解码 */
+function base64Decode(str) {
+  var binary = atob(str);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+/** UTF-8 安全的 base64 编码 */
+function base64Encode(str) {
+  var bytes = new TextEncoder().encode(str);
+  var binary = '';
+  for (var i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
 
 // 获取文件 SHA 和内容
 async function getFileSha(filePath) {
   try {
     const data = await ghApi('contents/' + filePath);
-    return { sha: data.sha, content: atob(data.content) };
+    return { sha: data.sha, content: base64Decode(data.content) };
   } catch(e) {
     if (e.message.indexOf('404') >= 0 || e.message.indexOf('Not Found') >= 0) {
       return { sha: null, content: '' };
@@ -350,8 +384,9 @@ function renderFileList() {
 }
 
 async function refreshAllFiles() {
-  showToast('正在加载文件列表...', 'info');
+  showToast('正在连接 GitHub...', 'info');
   try {
+    // 验证 token 和仓库是否可访问
     const repoData = await ghApi('');
     state.files = [];
     state.currentFile = null;
@@ -359,7 +394,17 @@ async function refreshAllFiles() {
     renderFileList();
     showToast('已连接: ' + repoData.full_name, 'success');
   } catch(e) {
-    showToast('连接失败: ' + e.message, 'error');
+    var msg = e.message;
+    if (msg.indexOf('401') >= 0) {
+      msg = 'Token 无效或已过期，请检查 ⚙️ 设置中的 Token';
+    } else if (msg.indexOf('403') >= 0) {
+      msg = 'Token 权限不足或 API 频率限制，请检查 Token 权限（需要 repo 权限）';
+    } else if (msg.indexOf('404') >= 0) {
+      msg = '仓库不存在，请检查 ⚙️ 设置中的仓库名';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      msg = '网络请求失败，可能是 CORS 或网络问题。如果你是第一次使用，请确认 Token 未被 GitHub 撤销（之前推送时被检测到泄露可能已被自动撤销），建议重新生成一个新 Token';
+    }
+    showToast('连接失败: ' + msg, 'error');
   }
 }
 
@@ -489,7 +534,7 @@ async function commitFile() {
 
     await ghApi('contents/' + state.currentFile.path, 'PUT', {
       message: message,
-      content: btoa(unescape(encodeURIComponent(content))),
+      content: base64Encode(content),
       sha: fileInfo.sha,
       branch: state.branch,
     });
