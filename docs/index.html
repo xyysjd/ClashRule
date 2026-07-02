@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clash 规则编辑器</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --accent: #0f3460;
+  --primary: #e94560;
+  --text: #eee;
+  --muted: #8892b0;
+  --border: #2a2a4a;
+  --success: #4caf50;
+  --warning: #ff9800;
+  --danger: #f44336;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+}
+header {
+  background: var(--card); padding: 16px 24px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+}
+header h1 { font-size: 20px; display: flex; align-items: center; gap: 8px; }
+header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
+.header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+
+/* 设置面板 */
+.settings-panel {
+  background: var(--card); border-radius: 8px; padding: 16px; margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.settings-panel h2 { font-size: 15px; margin-bottom: 12px; color: var(--muted); }
+.settings-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.settings-row label { font-size: 13px; color: var(--muted); }
+.settings-row input {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 12px;
+  border-radius: 4px; font-size: 13px; flex: 1; min-width: 200px;
+}
+.settings-row input:focus { outline: none; border-color: var(--primary); }
+.btn {
+  padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;
+  font-weight: 500; transition: opacity 0.2s; white-space: nowrap;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-warning { background: var(--warning); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* 文件列表 */
+.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.file-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
+  cursor: pointer; transition: all 0.2s;
+}
+.file-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+.file-card.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.file-card .file-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.file-card .file-desc { font-size: 12px; color: var(--muted); }
+.file-card .file-status { font-size: 11px; margin-top: 8px; padding: 2px 8px; border-radius: 3px; display: inline-block; }
+.file-status.loaded { background: rgba(76,175,80,0.15); color: var(--success); }
+.file-status.error { background: rgba(244,67,54,0.15); color: var(--danger); }
+.file-status.pending { background: rgba(255,152,0,0.15); color: var(--warning); }
+
+/* 编辑器区域 */
+.editor-section { display: none; }
+.editor-section.visible { display: block; }
+.editor-toolbar {
+  background: var(--card); border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0;
+  padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.editor-toolbar .file-title { font-size: 15px; font-weight: 600; }
+.editor-toolbar .file-path { font-size: 12px; color: var(--muted); font-weight: normal; }
+.editor-actions { display: flex; gap: 6px; }
+.editor-wrapper {
+  border: 1px solid var(--border); border-radius: 0 0 8px 8px; overflow: hidden; margin-bottom: 20px;
+}
+.editor-wrapper textarea {
+  width: 100%; min-height: 400px; background: #0d1117; color: #c9d1d9; font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px; line-height: 1.6; padding: 16px; border: none; resize: vertical; tab-size: 2;
+}
+.editor-wrapper textarea:focus { outline: none; }
+.editor-info {
+  background: var(--card); padding: 8px 16px; font-size: 12px; color: var(--muted);
+  border-top: 1px solid var(--border); display: flex; justify-content: space-between;
+}
+
+/* 提交面板 */
+.commit-panel {
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px;
+  display: none;
+}
+.commit-panel.visible { display: block; }
+.commit-panel h3 { font-size: 14px; margin-bottom: 8px; }
+.commit-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 12px; border-radius: 4px; font-size: 13px; margin-bottom: 10px;
+}
+.commit-input:focus { outline: none; border-color: var(--primary); }
+.commit-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 状态消息 */
+.toast {
+  position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 6px; font-size: 13px;
+  z-index: 9999; transform: translateX(120%); transition: transform 0.3s; max-width: 400px;
+}
+.toast.show { transform: translateX(0); }
+.toast.success { background: var(--success); color: #fff; }
+.toast.error { background: var(--danger); color: #fff; }
+.toast.info { background: var(--accent); color: #fff; }
+
+/* 加载 */
+.loading { text-align: center; padding: 40px; color: var(--muted); }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 模态框 */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9998; display: none; }
+.modal-overlay.show { display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; }
+.modal h3 { font-size: 16px; margin-bottom: 12px; }
+.modal p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .container { padding: 12px; }
+  header { padding: 12px 16px; }
+  header h1 { font-size: 17px; }
+  .file-grid { grid-template-columns: 1fr; }
+  .editor-wrapper textarea { min-height: 300px; }
+  .settings-row input { min-width: 120px; }
+  .editor-toolbar { flex-direction: column; align-items: flex-start; }
+}
+
+.diff-content { background: #0d1117; border: 1px solid var(--border); border-radius: 4px; padding: 12px; font-family: monospace; font-size: 12px; line-height: 1.5; margin-top: 8px; max-height: 300px; overflow-y: auto; }
+.diff-added { color: #7ee787; }
+.diff-removed { color: #f85149; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ Clash 规则编辑器 <small>在线编辑 · 一键推送</small></h1>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="refreshAllFiles()">🔄 刷新</button>
+    <button class="btn btn-outline" onclick="showSettings()">⚙️ 设置</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 设置面板 -->
+  <div class="settings-panel" id="settingsPanel" style="display:none">
+    <h2>⚙️ GitHub 设置</h2>
+    <div class="settings-row">
+      <label>Token</label>
+      <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx" value="">
+      <label>仓库</label>
+      <input type="text" id="repoInput" placeholder="用户名/仓库名" value="">
+      <label>分支</label>
+      <input type="text" id="branchInput" placeholder="main" value="main">
+      <button class="btn btn-success btn-sm" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+
+  <!-- 文件列表 -->
+  <div id="fileList" class="file-grid"></div>
+
+  <!-- 编辑器 -->
+  <div class="editor-section" id="editorSection">
+    <div class="editor-toolbar">
+      <div>
+        <span class="file-title" id="editorTitle">文件名</span>
+        <span class="file-path" id="editorPath">路径</span>
+      </div>
+      <div class="editor-actions">
+        <button class="btn btn-warning btn-sm" onclick="showDiff()">📝 对比</button>
+        <button class="btn btn-primary btn-sm" onclick="saveFile()">💾 保存</button>
+      </div>
+    </div>
+    <div class="editor-wrapper">
+      <textarea id="editorContent" spellcheck="false"></textarea>
+      <div class="editor-info">
+        <span id="editorLines">行数: 0</span>
+        <span id="editorSize">大小: 0 B</span>
+      </div>
+    </div>
+
+    <!-- 提交面板 -->
+    <div class="commit-panel" id="commitPanel">
+      <h3>📤 提交到 GitHub</h3>
+      <input class="commit-input" id="commitMessage" placeholder="提交说明" value="更新规则">
+      <div class="commit-actions">
+        <button class="btn btn-success" onclick="commitFile()">🚀 提交推送</button>
+        <button class="btn btn-outline" onclick="hideCommitPanel()">取消</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 模态框 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">标题</h3>
+    <p id="modalBody">内容</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============== 状态 ==============
+const state = {
+  token: '',
+  repo: '',
+  branch: 'main',
+  files: [],
+  currentFile: null,
+  originalContent: '',
+};
+
+// 从 localStorage 恢复设置
+try {
+  const saved = JSON.parse(localStorage.getItem('clash-editor-settings') || '{}');
+  state.token = saved.token || '';
+  state.repo = saved.repo || 'xyysjd/ClashRule';
+  state.branch = saved.branch || 'main';
+} catch(e) {}
+
+// ============== 文件清单 ==============
+const FILE_LIST = [
+  { name: 'GeneralClashRule.ini', path: 'GeneralClashRule.ini', desc: '主规则配置文件（分组、代理策略）' },
+  { name: 'guonei.yaml', path: 'guonei.yaml', desc: '国内流量规则' },
+  { name: 'guowai.yaml', path: 'guowai.yaml', desc: '国外流量规则' },
+  { name: 'Emby.yaml', path: 'Emby.yaml', desc: 'EMBY 规则' },
+  { name: 'zlemby.yaml', path: 'zlemby.yaml', desc: '直连 EMBY 规则' },
+  { name: 'trakt.yaml', path: 'trakt.yaml', desc: 'Trakt 规则' },
+];
+
+// ============== API 工具 ==============
+async function ghApi(path, method, body) {
+  method = method || 'GET';
+  const headers = {
+    'Authorization': 'token ' + state.token,
+    'Accept': 'application/vnd.github.v3+json',
+  };
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const url = 'https://api.github.com/repos/' + state.repo + '/' + path;
+  const res = await fetch(url, { method: method, headers: headers, body: body ? JSON.stringify(body) : null });
+  if (!res.ok) {
+    const err = await res.json().catch(function() { return {}; });
+    throw new Error(err.message || 'HTTP ' + res.status);
+  }
+  return res.json();
+}
+
+// 获取文件 SHA 和内容
+async function getFileSha(filePath) {
+  try {
+    const data = await ghApi('contents/' + filePath);
+    return { sha: data.sha, content: atob(data.content) };
+  } catch(e) {
+    if (e.message.indexOf('404') >= 0 || e.message.indexOf('Not Found') >= 0) {
+      return { sha: null, content: '' };
+    }
+    throw e;
+  }
+}
+
+// ============== 界面函数 ==============
+
+function showToast(msg, type) {
+  type = type || 'info';
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+function showModal(title, body) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').textContent = body;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function showSettings() {
+  var panel = document.getElementById('settingsPanel');
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    document.getElementById('tokenInput').value = state.token;
+    document.getElementById('repoInput').value = state.repo;
+    document.getElementById('branchInput').value = state.branch;
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function saveSettings() {
+  state.token = document.getElementById('tokenInput').value.trim();
+  state.repo = document.getElementById('repoInput').value.trim();
+  state.branch = document.getElementById('branchInput').value.trim() || 'main';
+  localStorage.setItem('clash-editor-settings', JSON.stringify({
+    token: state.token, repo: state.repo, branch: state.branch,
+  }));
+  document.getElementById('settingsPanel').style.display = 'none';
+  showToast('设置已保存', 'success');
+  refreshAllFiles();
+}
+
+function renderFileList() {
+  var container = document.getElementById('fileList');
+  var html = '';
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    var f = FILE_LIST[i];
+    var file = null;
+    for (var j = 0; j < state.files.length; j++) {
+      if (state.files[j].path === f.path) { file = state.files[j]; break; }
+    }
+    var status = file ? (file.error ? 'error' : 'loaded') : 'pending';
+    var statusText = file ? (file.error ? '加载失败' : '已加载') : '待加载';
+    var isActive = state.currentFile && state.currentFile.path === f.path;
+    html += '<div class="file-card' + (isActive ? ' active' : '') + '" onclick="selectFile(\'' + f.path + '\')">' +
+      '<div class="file-name">📄 ' + f.name + '</div>' +
+      '<div class="file-desc">' + f.desc + '</div>' +
+      '<span class="file-status ' + status + '">' + statusText + '</span></div>';
+  }
+  container.innerHTML = html;
+}
+
+async function refreshAllFiles() {
+  showToast('正在加载文件列表...', 'info');
+  try {
+    const repoData = await ghApi('');
+    state.files = [];
+    state.currentFile = null;
+    document.getElementById('editorSection').classList.remove('visible');
+    renderFileList();
+    showToast('已连接: ' + repoData.full_name, 'success');
+  } catch(e) {
+    showToast('连接失败: ' + e.message, 'error');
+  }
+}
+
+async function selectFile(filePath) {
+  var fileMeta = null;
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    if (FILE_LIST[i].path === filePath) { fileMeta = FILE_LIST[i]; break; }
+  }
+  if (!fileMeta) return;
+
+  document.getElementById('editorTitle').textContent = fileMeta.name;
+  document.getElementById('editorPath').textContent = filePath;
+  document.getElementById('editorSection').classList.add('visible');
+  document.getElementById('commitPanel').classList.remove('visible');
+  document.getElementById('editorContent').value = '加载中...';
+  document.getElementById('editorContent').disabled = true;
+
+  try {
+    const result = await getFileSha(filePath);
+    state.currentFile = { path: filePath, sha: result.sha, meta: fileMeta };
+    state.originalContent = result.content;
+
+    // 更新文件状态
+    var found = false;
+    for (var idx = 0; idx < state.files.length; idx++) {
+      if (state.files[idx].path === filePath) {
+        state.files[idx] = { path: filePath, meta: fileMeta, loaded: true, error: false };
+        found = true; break;
+      }
+    }
+    if (!found) state.files.push({ path: filePath, meta: fileMeta, loaded: true, error: false });
+
+    document.getElementById('editorContent').value = result.content;
+    document.getElementById('editorContent').disabled = false;
+    updateEditorInfo();
+    renderFileList();
+  } catch(e) {
+    showToast('加载 ' + filePath + ' 失败: ' + e.message, 'error');
+    var found2 = false;
+    for (var idx2 = 0; idx2 < state.files.length; idx2++) {
+      if (state.files[idx2].path === filePath) {
+        state.files[idx2] = { path: filePath, meta: fileMeta, loaded: false, error: true };
+        found2 = true; break;
+      }
+    }
+    if (!found2) state.files.push({ path: filePath, meta: fileMeta, loaded: false, error: true });
+    document.getElementById('editorContent').value = '';
+    document.getElementById('editorContent').disabled = false;
+    renderFileList();
+  }
+}
+
+function updateEditorInfo() {
+  var text = document.getElementById('editorContent').value;
+  var lines = text.split(/\n/).length - 1;
+  document.getElementById('editorLines').textContent = '行数: ' + lines;
+  var size = text.length;
+  document.getElementById('editorSize').textContent = '大小: ' + (size >= 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B');
+}
+
+document.getElementById('editorContent').addEventListener('input', updateEditorInfo);
+
+function saveFile() {
+  if (!state.currentFile) return;
+  var content = document.getElementById('editorContent').value;
+  if (content === state.originalContent) {
+    showToast('内容未改变', 'info');
+    return;
+  }
+  document.getElementById('commitPanel').classList.add('visible');
+}
+
+function hideCommitPanel() {
+  document.getElementById('commitPanel').classList.remove('visible');
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function showDiff() {
+  if (!state.currentFile) return;
+  var original = state.originalContent;
+  var current = document.getElementById('editorContent').value;
+  if (original === current) {
+    showModal('对比结果', '内容无变化');
+    document.querySelector('.modal').style.maxWidth = '';
+    return;
+  }
+  var origLines = original.split('\n');
+  var currLines = current.split('\n');
+  var diffHtml = '';
+  var maxLen = Math.max(origLines.length, currLines.length);
+  for (var i = 0; i < maxLen; i++) {
+    var o = origLines[i] !== undefined ? origLines[i] : '';
+    var c = currLines[i] !== undefined ? currLines[i] : '';
+    if (o !== c) {
+      if (o && currLines[i] !== undefined) {
+        diffHtml += '<div class="diff-removed">- ' + escapeHtml(o) + '</div>';
+        diffHtml += '<div class="diff-added">+ ' + escapeHtml(c) + '</div>';
+      } else if (o === '' && currLines[i] !== undefined) {
+        diffHtml += '<div class="diff-added">+ ' + escapeHtml(c) + '</div>';
+      } else {
+        diffHtml += '<div class="diff-removed">- ' + escapeHtml(o) + '</div>';
+      }
+    }
+  }
+  // 显示对比
+  document.getElementById('modalTitle').textContent = '📝 变更对比';
+  document.getElementById('modalBody').innerHTML = '<div class="diff-content">' + diffHtml + '</div>';
+  document.getElementById('modalOverlay').classList.add('show');
+  document.querySelector('.modal').style.maxWidth = '700px';
+}
+
+async function commitFile() {
+  if (!state.currentFile) return;
+  var content = document.getElementById('editorContent').value;
+  var message = document.getElementById('commitMessage').value.trim() || '更新规则文件';
+
+  var btn = document.querySelector('.commit-actions .btn-success');
+  btn.disabled = true;
+  btn.textContent = '⏳ 提交中...';
+
+  try {
+    // 先重新获取 SHA（避免并发冲突）
+    var fileInfo = await getFileSha(state.currentFile.path);
+
+    await ghApi('contents/' + state.currentFile.path, 'PUT', {
+      message: message,
+      content: btoa(unescape(encodeURIComponent(content))),
+      sha: fileInfo.sha,
+      branch: state.branch,
+    });
+
+    // 更新本地状态
+    state.originalContent = content;
+    state.currentFile.sha = null;
+    document.getElementById('commitPanel').classList.remove('visible');
+    showToast('✅ ' + state.currentFile.path + ' 已成功推送到 GitHub', 'success');
+  } catch(e) {
+    showToast('❌ 提交失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 提交推送';
+  }
+}
+
+// 点击外部关闭模态框
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ============== 初始化 ==============
+document.getElementById('tokenInput').value = state.token;
+document.getElementById('repoInput').value = state.repo;
+document.getElementById('branchInput').value = state.branch;
+renderFileList();
+refreshAllFiles();
+</script>
+</body>
+</html>
