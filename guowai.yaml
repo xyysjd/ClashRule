@@ -1,4 +1,4 @@
-# 内容：国外流量
+# åå®¹ï¼å½å¤æµé
 payload:
   - DOMAIN-SUFFIX,ipwho.is
   - DOMAIN-SUFFIX,atom.io
@@ -34,3 +34,4 @@ payload:
   - DOMAIN-KEYWORD,github
   - DOMAIN-SUFFIX,vpnhub.me
   - DOMAIN-SUFFIX,vpngate.net
+  - DOMAIN-SUFFIX,lzjss.eu.org
