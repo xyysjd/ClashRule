@@ -209,6 +209,92 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
 .diff-content { background: #0d1117; border: 1px solid var(--border); border-radius: 4px; padding: 12px; font-family: monospace; font-size: 12px; line-height: 1.5; margin-top: 8px; max-height: 300px; overflow-y: auto; }
 .diff-added { color: #7ee787; }
 .diff-removed { color: #f85149; }
+
+/* INI 管理面板 */
+.ini-manager {
+  background: var(--card); border: 1px solid var(--border); border-bottom: none;
+  padding: 0; display: none;
+}
+.ini-manager.visible { display: block; }
+.ini-tabs {
+  display: flex; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.15);
+}
+.ini-tab {
+  padding: 10px 20px; border: none; background: none; color: var(--muted); cursor: pointer;
+  font-size: 13px; font-weight: 500; transition: all 0.2s; border-bottom: 2px solid transparent;
+}
+.ini-tab:hover { color: var(--text); }
+.ini-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.ini-tab-content { display: none; padding: 14px 16px; }
+.ini-tab-content.active { display: block; }
+.ini-section-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 13px;
+}
+.ini-section-header strong { font-size: 14px; }
+.ini-section-header span { color: var(--muted); font-size: 12px; }
+.ini-search-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.ini-search-input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 10px; border-radius: 4px; font-size: 13px;
+}
+.ini-search-input:focus { outline: none; border-color: var(--primary); }
+.ini-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.ini-ruleset-item {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.ini-ruleset-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; flex: 1; }
+.ini-ruleset-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.ini-ruleset-format {
+  font-size: 11px; background: rgba(233,69,96,0.15); color: var(--primary);
+  padding: 1px 6px; border-radius: 3px;
+}
+.ini-ruleset-url { font-size: 12px; color: var(--muted); word-break: break-all; min-width: 0; }
+.ini-group-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0; overflow: hidden;
+}
+.ini-group-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.ini-group-name { font-weight: 600; font-size: 13px; flex: 1; }
+.ini-group-type-badge {
+  font-size: 11px; background: rgba(76,175,80,0.15); color: var(--success);
+  padding: 1px 6px; border-radius: 3px;
+}
+.ini-group-preview {
+  padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px;
+}
+.ini-group-detail { color: var(--muted); }
+.ini-group-form { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ini-form-row { display: flex; align-items: center; gap: 8px; }
+.ini-form-row label { font-size: 12px; color: var(--muted); min-width: 80px; flex-shrink: 0; }
+.ini-input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 10px; border-radius: 4px; font-size: 13px;
+}
+.ini-input:focus { outline: none; border-color: var(--primary); }
+.ini-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.ini-form-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; }
+.ini-chip-list { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.ini-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(15,52,96,0.5); border: 1px solid var(--border); border-radius: 12px;
+  padding: 2px 10px; font-size: 12px; color: var(--text);
+}
+.ini-chip-removable { padding-right: 4px; }
+.ini-chip-remove {
+  cursor: pointer; color: var(--danger); font-size: 14px; line-height: 1; margin-left: 2px;
+  opacity: 0.7;
+}
+.ini-chip-remove:hover { opacity: 1; }
+.ini-add-chip-row { display: flex; gap: 6px; margin-left: 88px; }
+
+@media (max-width: 640px) {
+  .ini-form-grid { grid-template-columns: 1fr; }
+  .ini-form-row { flex-direction: column; align-items: flex-start; }
+  .ini-add-chip-row { margin-left: 0; }
+}
 </style>
 </head>
 <body>
@@ -278,6 +364,30 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
       </div>
       <input class="rule-filter-input" id="ruleFilterInput" placeholder="搜索规则，例如 github" oninput="filterPayloadRules()">
       <div class="rule-list" id="ruleList"></div>
+    </div>
+    <div class="ini-manager" id="iniManager">
+      <div class="ini-tabs">
+        <button class="ini-tab active" data-tab="rulesets" onclick="switchIniTab('rulesets')">📋 规则集</button>
+        <button class="ini-tab" data-tab="groups" onclick="switchIniTab('groups')">🎯 策略组</button>
+      </div>
+      <div class="ini-tab-content active" id="iniRulesetsTab">
+        <div class="ini-section-header">
+          <strong>规则集列表</strong>
+          <span id="iniRulesetCount">0 条</span>
+        </div>
+        <div class="ini-search-row">
+          <input class="ini-search-input" id="iniRulesetFilter" placeholder="搜索规则集..." oninput="renderIniRulesets()">
+          <button class="btn btn-success btn-sm" onclick="showAddRulesetModal()">➕ 添加规则集</button>
+        </div>
+        <div class="ini-list" id="iniRulesetList"></div>
+      </div>
+      <div class="ini-tab-content" id="iniGroupsTab">
+        <div class="ini-section-header">
+          <strong>策略组列表</strong>
+          <span id="iniGroupCount">0 个</span>
+        </div>
+        <div class="ini-list" id="iniGroupList"></div>
+      </div>
     </div>
     <div class="editor-wrapper">
       <textarea id="editorContent" spellcheck="false"></textarea>
@@ -354,6 +464,10 @@ const FILE_LIST = [
 
 function isYamlPayloadFile(fileMeta) {
   return fileMeta && fileMeta.type === 'yaml-payload';
+}
+
+function isIniFile(fileMeta) {
+  return fileMeta && fileMeta.type === 'ini';
 }
 
 // ============== API 工具 ==============
@@ -502,7 +616,7 @@ function renderFileList() {
     var isActive = state.currentFile && state.currentFile.path === f.path;
     var cardClass = 'file-card' + (isActive ? ' active' : '') + (isDirty ? ' dirty' : '');
     html += '<div class="' + cardClass + '" onclick="selectFile(\'' + f.path + '\')">' +
-      '<div class="file-name">📄 ' + f.name + (isYamlPayloadFile(f) ? '<span class="file-type-tag">规则管理</span>' : '') + '</div>' +
+      '<div class="file-name">📄 ' + f.name + (isIniFile(f) ? '<span class="file-type-tag">INI 管理</span>' : isYamlPayloadFile(f) ? '<span class="file-type-tag">规则管理</span>' : '') + '</div>' +
       '<div class="file-desc">' + f.desc + '</div>' +
       '<span class="file-status ' + status + '">' + statusText + '</span></div>';
   }
@@ -885,6 +999,503 @@ function buildRuleRaw(type, value, option) {
   return raw;
 }
 
+// ============== INI 解析 ==============
+
+function parseIniContent(text) {
+  var result = {
+    valid: true,
+    error: '',
+    meta: { enableRuleGenerator: true, overwriteOriginalRules: true },
+    rulesets: [],
+    groups: [],
+    otherLines: [],
+  };
+
+  var lines = text.split(/\r?\n/);
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.trim();
+
+    if (trimmed === '' || trimmed.startsWith(';') || trimmed.startsWith('#') || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      result.otherLines.push(line);
+      continue;
+    }
+
+    if (trimmed.indexOf('enable_rule_generator=') >= 0) {
+      result.meta.enableRuleGenerator = trimmed.split('=')[1].trim() === 'true';
+      result.otherLines.push(line);
+      continue;
+    }
+
+    if (trimmed.indexOf('overwrite_original_rules=') >= 0) {
+      result.meta.overwriteOriginalRules = trimmed.split('=')[1].trim() === 'true';
+      result.otherLines.push(line);
+      continue;
+    }
+
+    if (trimmed.indexOf('ruleset=') === 0) {
+      var rest = trimmed.substring(8);
+      var parts = rest.split(',');
+      var name = parts[0].trim();
+      var format = '';
+      var url = '';
+      if (parts.length >= 3) {
+        format = parts[1].trim();
+        url = parts.slice(2).join(',').trim();
+      } else if (parts.length === 2) {
+        url = parts[1].trim();
+      }
+      result.rulesets.push({
+        name: name,
+        format: format,
+        url: url,
+        isFinal: name === '[]FINAL',
+      });
+      continue;
+    }
+
+    if (trimmed.indexOf('custom_proxy_group=') === 0) {
+      var rest = trimmed.substring(19);
+      var parts = rest.split('`');
+      var group = {
+        name: parts[0] || '',
+        type: parts[1] || 'select',
+        options: [],
+        filter: '',
+        testUrl: '',
+        interval: '300',
+        tolerance: '',
+        failures: '',
+      };
+
+      if (group.type === 'select') {
+        group.options = parts.slice(2);
+      } else {
+        group.filter = parts[2] || '';
+        group.testUrl = parts[3] || '';
+        group.interval = parts[4] || '300';
+        group.tolerance = parts[5] || '';
+        group.failures = parts[6] || '';
+      }
+
+      result.groups.push(group);
+      continue;
+    }
+
+    result.otherLines.push(line);
+  }
+
+  return result;
+}
+
+function serializeIniContent(parsed) {
+  var lines = [];
+  var rulesetsDone = false;
+  var groupsDone = false;
+
+  for (var i = 0; i < parsed.otherLines.length; i++) {
+    var line = parsed.otherLines[i];
+    var trimmed = line.trim();
+
+    if (trimmed === ';设置规则标志位' && !rulesetsDone) {
+      lines.push(line);
+      rulesetsDone = true;
+      for (var r = 0; r < parsed.rulesets.length; r++) {
+        var rs = parsed.rulesets[r];
+        var parts = ['ruleset=' + rs.name];
+        if (rs.format) parts.push(rs.format);
+        if (rs.url) parts.push(rs.url);
+        lines.push(parts.join(','));
+      }
+      continue;
+    }
+
+    if (trimmed === ';设置分组标志位' && !groupsDone) {
+      lines.push(line);
+      groupsDone = true;
+      for (var g = 0; g < parsed.groups.length; g++) {
+        var grp = parsed.groups[g];
+        var gp = ['custom_proxy_group=' + grp.name, grp.type];
+        if (grp.type === 'select') {
+          gp = gp.concat(grp.options);
+        } else {
+          gp.push(grp.filter || '');
+          gp.push(grp.testUrl || '');
+          gp.push(grp.interval || '300');
+          if (grp.tolerance) gp.push(grp.tolerance);
+          if (grp.failures) gp.push(grp.failures);
+        }
+        lines.push(gp.join('`'));
+      }
+      continue;
+    }
+
+    lines.push(line);
+  }
+
+  if (!rulesetsDone && parsed.rulesets.length) {
+    lines.push(';设置规则标志位');
+    for (var r2 = 0; r2 < parsed.rulesets.length; r2++) {
+      var rs2 = parsed.rulesets[r2];
+      var parts2 = ['ruleset=' + rs2.name];
+      if (rs2.format) parts2.push(rs2.format);
+      if (rs2.url) parts2.push(rs2.url);
+      lines.push(parts2.join(','));
+    }
+  }
+
+  if (!groupsDone && parsed.groups.length) {
+    lines.push(';设置分组标志位');
+    for (var g2 = 0; g2 < parsed.groups.length; g2++) {
+      var grp2 = parsed.groups[g2];
+      var gp2 = ['custom_proxy_group=' + grp2.name, grp2.type];
+      if (grp2.type === 'select') {
+        gp2 = gp2.concat(grp2.options);
+      } else {
+        gp2.push(grp2.filter || '');
+        gp2.push(grp2.testUrl || '');
+        gp2.push(grp2.interval || '300');
+        if (grp2.tolerance) gp2.push(grp2.tolerance);
+        if (grp2.failures) gp2.push(grp2.failures);
+      }
+      lines.push(gp2.join('`'));
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// ============== INI 管理交互 ==============
+
+function switchIniTab(tab) {
+  document.querySelectorAll('.ini-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.ini-tab-content').forEach(function(c) { c.classList.remove('active'); });
+  document.querySelector('.ini-tab[data-tab="' + tab + '"]').classList.add('active');
+  document.getElementById('ini' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Tab').classList.add('active');
+}
+
+function getIniParsed() {
+  return parseIniContent(document.getElementById('editorContent').value);
+}
+
+function syncIniToEditor(parsed) {
+  document.getElementById('editorContent').value = serializeIniContent(parsed);
+  updateEditorInfo();
+  renderIniManager();
+}
+
+function renderIniManager() {
+  var manager = document.getElementById('iniManager');
+  if (!manager) return;
+
+  if (!state.currentFile || !isIniFile(state.currentFile.meta)) {
+    manager.classList.remove('visible');
+    return;
+  }
+
+  manager.classList.add('visible');
+  renderIniRulesets();
+  renderIniGroups();
+}
+
+function renderIniRulesets() {
+  var list = document.getElementById('iniRulesetList');
+  var count = document.getElementById('iniRulesetCount');
+  if (!list || !count) return;
+
+  var parsed = getIniParsed();
+  if (!parsed.valid) {
+    count.textContent = '格式异常';
+    list.innerHTML = '<div class="rule-error">' + escapeHtml(parsed.error || 'INI 格式无法识别') + '</div>';
+    return;
+  }
+
+  var filter = (document.getElementById('iniRulesetFilter').value || '').toLowerCase();
+  var html = '';
+  var shown = 0;
+
+  for (var i = 0; i < parsed.rulesets.length; i++) {
+    var rs = parsed.rulesets[i];
+    if (filter && rs.name.toLowerCase().indexOf(filter) < 0 && rs.url.toLowerCase().indexOf(filter) < 0) continue;
+    shown++;
+    var formatBadge = rs.format ? '<span class="ini-ruleset-format">' + escapeHtml(rs.format) + '</span>' : '';
+    var urlDisplay = rs.isFinal ? '<span style="color:var(--warning)">（本地兜底）</span>' : escapeHtml(rs.url);
+    html += '<div class="ini-ruleset-item">' +
+      '<div class="ini-ruleset-info">' +
+      '<span class="ini-ruleset-name">' + escapeHtml(rs.name) + '</span>' +
+      formatBadge +
+      '<span class="ini-ruleset-url">' + urlDisplay + '</span>' +
+      '</div>' +
+      '<div class="rule-actions">' +
+      '<button class="btn btn-warning btn-sm" onclick="editRuleset(' + i + ')">编辑</button> ' +
+      '<button class="btn btn-danger btn-sm" onclick="deleteRuleset(' + i + ')">删除</button>' +
+      '</div></div>';
+  }
+
+  count.textContent = parsed.rulesets.length + ' 条规则集' + (filter ? '，显示 ' + shown + ' 条' : '');
+  if (!html) {
+    html = '<div class="rule-empty">' + (parsed.rulesets.length ? '没有匹配的规则集' : '暂无规则集') + '</div>';
+  }
+  list.innerHTML = html;
+}
+
+function renderIniGroups() {
+  var list = document.getElementById('iniGroupList');
+  var count = document.getElementById('iniGroupCount');
+  if (!list || !count) return;
+
+  var parsed = getIniParsed();
+  if (!parsed.valid) {
+    count.textContent = '格式异常';
+    list.innerHTML = '<div class="rule-error">' + escapeHtml(parsed.error) + '</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < parsed.groups.length; i++) {
+    var g = parsed.groups[i];
+    html += '<div class="ini-group-card">';
+    html += '<div class="ini-group-header">';
+    html += '<span class="ini-group-name">' + escapeHtml(g.name) + '</span>';
+    html += '<span class="ini-group-type-badge">' + escapeHtml(g.type) + '</span>';
+    html += '</div>';
+
+    // 策略组编辑表单
+    html += '<div class="ini-group-form">';
+
+    // 组名
+    html += '<div class="ini-form-row"><label>组名</label>' +
+      '<input class="ini-input" id="iniGroupName' + i + '" value="' + escapeHtml(g.name) + '" onchange="updateIniGroup(' + i + ')" placeholder="策略组名称"></div>';
+
+    // 类型
+    html += '<div class="ini-form-row"><label>类型</label>' +
+      '<select class="ini-input" id="iniGroupType' + i + '" onchange="onIniGroupTypeChange(' + i + ')">' +
+      '<option value="select"' + (g.type === 'select' ? ' selected' : '') + '>select（手动选择）</option>' +
+      '<option value="url-test"' + (g.type === 'url-test' ? ' selected' : '') + '>url-test（自动选择）</option>' +
+      '<option value="fallback"' + (g.type === 'fallback' ? ' selected' : '') + '>fallback（故障转移）</option>' +
+      '<option value="load-balance"' + (g.type === 'load-balance' ? ' selected' : '') + '>load-balance（负载均衡）</option>' +
+      '</select></div>';
+
+    if (g.type === 'select') {
+      // select: chip 选项
+      html += '<div class="ini-form-row"><label>选项</label>' +
+        '<div class="ini-chip-list" id="iniGroupOptions' + i + '">';
+      for (var oi = 0; oi < g.options.length; oi++) {
+        var opt = g.options[oi];
+        if (opt === '.*') {
+          html += '<span class="ini-chip" style="border-color:var(--primary)">正则筛选: .*</span>';
+          continue;
+        }
+        html += '<span class="ini-chip ini-chip-removable">' + escapeHtml(opt) +
+          '<span class="ini-chip-remove" onclick="removeIniGroupOption(' + i + ',' + oi + ')">×</span></span>';
+      }
+      html += '</div></div>';
+      html += '<div class="ini-add-chip-row">' +
+        '<select class="ini-input" id="iniGroupOptSelect' + i + '" style="flex:0;min-width:auto;width:auto">' +
+        '<option value="">自定义...</option><option value="[]DIRECT">[]DIRECT</option><option value="[]REJECT">[]REJECT</option><option value="[]PASS">[]PASS</option></select>' +
+        '<input class="ini-input" id="iniGroupOptInput' + i + '" placeholder="选项（如 []手动选择 或 .*）" style="flex:1">' +
+        '<button class="btn btn-sm btn-success" onclick="addIniGroupOption(' + i + ')">添加</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="saveIniGroup(' + i + ')">保存</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteIniGroup(' + i + ')">删除组</button>' +
+        '</div>';
+    } else {
+      // url-test / fallback / load-balance
+      html += '<div class="ini-form-row"><label>正则筛选</label>' +
+        '<input class="ini-input" id="iniGroupFilter' + i + '" value="' + escapeHtml(g.filter || '') + '" onchange="updateIniGroup(' + i + ')" placeholder="如 (🇭🇰|港|HK|Hong Kong)"></div>';
+      html += '<div class="ini-form-grid">' +
+        '<div class="ini-form-row"><label>测试 URL</label><input class="ini-input" id="iniGroupUrl' + i + '" value="' + escapeHtml(g.testUrl || '') + '" onchange="updateIniGroup(' + i + ')" placeholder="http://..."></div>' +
+        '<div class="ini-form-row"><label>间隔</label><input class="ini-input" id="iniGroupInterval' + i + '" value="' + escapeHtml(g.interval || '300') + '" onchange="updateIniGroup(' + i + ')" placeholder="300"></div>' +
+        '<div class="ini-form-row"><label>容差/失败</label><input class="ini-input" id="iniGroupExtra' + i + '" value="' + escapeHtml(g.tolerance + (g.failures ? ',' + g.failures : '')) + '" onchange="updateIniGroup(' + i + ')" placeholder=",50"></div>' +
+        '</div>';
+      html += '<div class="ini-form-actions">' +
+        '<button class="btn btn-sm btn-success" onclick="saveIniGroup(' + i + ')">保存</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteIniGroup(' + i + ')">删除组</button>' +
+        '</div>';
+    }
+
+    html += '</div></div>';
+  }
+
+  // 添加新策略组
+  html += '<div class="ini-group-card" style="border:1px dashed var(--border);padding:12px;margin-top:6px;">' +
+    '<div class="ini-form-row"><label>添加新策略组</label>' +
+    '<select class="ini-input" id="iniNewGroupType" style="flex:0;min-width:auto;width:auto">' +
+    '<option value="select">select</option>' +
+    '<option value="url-test">url-test</option>' +
+    '<option value="fallback">fallback</option>' +
+    '<option value="load-balance">load-balance</option></select>' +
+    '<input class="ini-input" id="iniNewGroupName" placeholder="策略组名称，如 🚀 国外流量" style="flex:1">' +
+    '<button class="btn btn-sm btn-success" onclick="addIniGroup()">➕ 添加</button></div></div>';
+
+  count.textContent = parsed.groups.length + ' 个策略组';
+  if (!html) {
+    html = '<div class="rule-empty">暂无策略组，可在下方添加</div>';
+  }
+  list.innerHTML = html;
+}
+
+function onIniGroupTypeChange(index) {
+  renderIniGroups();
+}
+
+function updateIniGroup(index) {
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.groups[index]) return;
+
+  parsed.groups[index].name = document.getElementById('iniGroupName' + index).value.trim();
+  parsed.groups[index].type = document.getElementById('iniGroupType' + index).value;
+
+  if (parsed.groups[index].type !== 'select') {
+    parsed.groups[index].filter = document.getElementById('iniGroupFilter' + index).value.trim();
+    parsed.groups[index].testUrl = document.getElementById('iniGroupUrl' + index).value.trim();
+    parsed.groups[index].interval = document.getElementById('iniGroupInterval' + index).value.trim() || '300';
+    var extra = document.getElementById('iniGroupExtra' + index).value.trim();
+    var extraParts = extra.split(',');
+    parsed.groups[index].tolerance = extraParts[0] || '';
+    parsed.groups[index].failures = extraParts[1] || '';
+  }
+
+  syncIniToEditor(parsed);
+}
+
+function saveIniGroup(index) {
+  updateIniGroup(index);
+  showToast('策略组已更新', 'success');
+}
+
+function addIniGroupOption(index) {
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.groups[index]) return;
+
+  var select = document.getElementById('iniGroupOptSelect' + index);
+  var input = document.getElementById('iniGroupOptInput' + index);
+  var val = select.value || input.value.trim();
+  if (!val) { showToast('请输入选项', 'error'); return; }
+
+  parsed.groups[index].options.push(val);
+  syncIniToEditor(parsed);
+  showToast('选项已添加', 'success');
+}
+
+function removeIniGroupOption(groupIdx, optIdx) {
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.groups[groupIdx]) return;
+  parsed.groups[groupIdx].options.splice(optIdx, 1);
+  syncIniToEditor(parsed);
+}
+
+function addIniGroup() {
+  var name = document.getElementById('iniNewGroupName').value.trim();
+  var type = document.getElementById('iniNewGroupType').value;
+  if (!name) { showToast('请输入策略组名称', 'error'); return; }
+
+  var parsed = getIniParsed();
+  if (!parsed.valid) return;
+
+  var group = { name: name, type: type, options: [], filter: '', testUrl: '', interval: '300', tolerance: '', failures: '' };
+  if (type === 'select') {
+    group.options = ['[]DIRECT'];
+  }
+
+  parsed.groups.push(group);
+  syncIniToEditor(parsed);
+  showToast('策略组已添加', 'success');
+}
+
+function deleteIniGroup(index) {
+  if (!confirm('确定删除此策略组？')) return;
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.groups[index]) return;
+  parsed.groups.splice(index, 1);
+  syncIniToEditor(parsed);
+  showToast('策略组已删除', 'success');
+}
+
+function showAddRulesetModal() {
+  var overlay = document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').textContent = '➕ 添加规则集';
+  document.getElementById('modalBody').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:10px">' +
+    '<input class="ini-input" id="rsNameInput" placeholder="规则集名称，如 🤖 OpenAI" style="width:100%">' +
+    '<select class="ini-input" id="rsFormatInput" style="width:100%">' +
+    '<option value="">默认格式</option><option value="clash-classic">clash-classic</option></select>' +
+    '<input class="ini-input" id="rsUrlInput" placeholder="URL 或输入 []FINAL 表示本地兜底" style="width:100%">' +
+    '<label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">' +
+    '<input type="checkbox" id="rsIsFinal" onchange="document.getElementById(\'rsUrlInput\').value=this.checked?\'[]FINAL\':\'\';document.getElementById(\'rsUrlInput\').disabled=this.checked"> 本地兜底规则 ([]FINAL)</label>' +
+    '</div>' +
+    '<div class="modal-actions" style="margin-top:12px">' +
+    '<button class="btn btn-outline" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-success" onclick="confirmAddRuleset()">确定添加</button></div>';
+  document.querySelector('.modal').style.maxWidth = '480px';
+  overlay.classList.add('show');
+}
+
+function confirmAddRuleset() {
+  var name = document.getElementById('rsNameInput').value.trim();
+  var format = document.getElementById('rsFormatInput').value;
+  var url = document.getElementById('rsUrlInput').value.trim();
+
+  if (!name) { showToast('请输入规则集名称', 'error'); return; }
+  if (!url) { showToast('请输入 URL 或勾选 []FINAL', 'error'); return; }
+
+  var parsed = getIniParsed();
+  if (!parsed.valid) return;
+  parsed.rulesets.push({ name: name, format: format, url: url, isFinal: url === '[]FINAL' });
+  syncIniToEditor(parsed);
+  closeModal();
+  showToast('规则集已添加', 'success');
+}
+
+function editRuleset(index) {
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.rulesets[index]) return;
+  var rs = parsed.rulesets[index];
+
+  var overlay = document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').textContent = '✏️ 编辑规则集';
+  document.getElementById('modalBody').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:10px">' +
+    '<input class="ini-input" id="rsNameEdit" value="' + escapeHtml(rs.name) + '" style="width:100%">' +
+    '<select class="ini-input" id="rsFormatEdit" style="width:100%">' +
+    '<option value="">默认格式</option><option value="clash-classic"' + (rs.format === 'clash-classic' ? ' selected' : '') + '>clash-classic</option></select>' +
+    '<input class="ini-input" id="rsUrlEdit" value="' + escapeHtml(rs.url) + '" style="width:100%">' +
+    '</div>' +
+    '<div class="modal-actions" style="margin-top:12px">' +
+    '<button class="btn btn-outline" onclick="closeModal()">取消</button>' +
+    '<button class="btn btn-success" onclick="confirmEditRuleset(' + index + ')">保存</button></div>';
+  document.querySelector('.modal').style.maxWidth = '480px';
+  overlay.classList.add('show');
+}
+
+function confirmEditRuleset(index) {
+  var name = document.getElementById('rsNameEdit').value.trim();
+  var format = document.getElementById('rsFormatEdit').value;
+  var url = document.getElementById('rsUrlEdit').value.trim();
+
+  if (!name) { showToast('请输入规则集名称', 'error'); return; }
+  if (!url) { showToast('请输入 URL', 'error'); return; }
+
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.rulesets[index]) return;
+  parsed.rulesets[index].name = name;
+  parsed.rulesets[index].format = format;
+  parsed.rulesets[index].url = url;
+  parsed.rulesets[index].isFinal = url === '[]FINAL';
+  syncIniToEditor(parsed);
+  closeModal();
+  showToast('规则集已更新', 'success');
+}
+
+function deleteRuleset(index) {
+  if (!confirm('确定删除此规则集？')) return;
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.rulesets[index]) return;
+  parsed.rulesets.splice(index, 1);
+  syncIniToEditor(parsed);
+  showToast('规则集已删除', 'success');
+}
+
 function validatePayloadRule(type, value, option) {
   type = (type || '').trim().toUpperCase();
   value = (value || '').trim();
@@ -911,6 +1522,16 @@ function renderRuleManager() {
   var count = document.getElementById('ruleCount');
   if (!manager || !list || !count) return;
 
+  // 如果是 INI 文件，隐藏 YAML 规则管理并显示 INI 管理
+  if (state.currentFile && isIniFile(state.currentFile.meta)) {
+    manager.classList.remove('visible');
+    list.innerHTML = '';
+    count.textContent = '0 条规则';
+    renderIniManager();
+    return;
+  }
+
+  // YAML 规则管理（原有逻辑）
   if (!state.currentFile || !isYamlPayloadFile(state.currentFile.meta)) {
     manager.classList.remove('visible');
     list.innerHTML = '';
