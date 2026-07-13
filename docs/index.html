@@ -290,6 +290,16 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
 .ini-chip-remove:hover { opacity: 1; }
 .ini-add-chip-row { display: flex; gap: 6px; margin-left: 88px; }
 
+/* 拖拽排序 */
+.drag-handle { cursor: grab; color: var(--muted); font-size: 16px; user-select: none; padding: 0 4px; }
+.drag-handle:active { cursor: grabbing; }
+.ini-ruleset-item[draggable="true"] { cursor: grab; }
+.ini-ruleset-item[draggable="true"]:active { cursor: grabbing; }
+.ini-ruleset-item.dragging, .ini-group-card.dragging { opacity: 0.4; }
+.ini-ruleset-item.drag-over, .ini-group-card.drag-over {
+  border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary);
+}
+
 @media (max-width: 640px) {
   .ini-form-grid { grid-template-columns: 1fr; }
   .ini-form-row { flex-direction: column; align-items: flex-start; }
@@ -1197,6 +1207,8 @@ function renderIniManager() {
   manager.classList.add('visible');
   renderIniRulesets();
   renderIniGroups();
+  // 需要在 DOM 更新后绑定拖拽事件（setTimeout 确保渲染完成）
+  setTimeout(enableIniDragDrop, 0);
 }
 
 function renderIniRulesets() {
@@ -1221,8 +1233,9 @@ function renderIniRulesets() {
     shown++;
     var formatBadge = rs.format ? '<span class="ini-ruleset-format">' + escapeHtml(rs.format) + '</span>' : '';
     var urlDisplay = rs.isFinal ? '<span style="color:var(--warning)">（本地兜底）</span>' : escapeHtml(rs.url);
-    html += '<div class="ini-ruleset-item">' +
+    html += '<div class="ini-ruleset-item" draggable="true" data-index="' + i + '">' +
       '<div class="ini-ruleset-info">' +
+      '<span class="drag-handle">⠿</span>' +
       '<span class="ini-ruleset-name">' + escapeHtml(rs.name) + '</span>' +
       formatBadge +
       '<span class="ini-ruleset-url">' + urlDisplay + '</span>' +
@@ -1255,8 +1268,9 @@ function renderIniGroups() {
   var html = '';
   for (var i = 0; i < parsed.groups.length; i++) {
     var g = parsed.groups[i];
-    html += '<div class="ini-group-card">';
+    html += '<div class="ini-group-card" data-index="' + i + '">';
     html += '<div class="ini-group-header">';
+    html += '<span class="drag-handle">⠿</span>';
     html += '<span class="ini-group-name">' + escapeHtml(g.name) + '</span>';
     html += '<span class="ini-group-type-badge">' + escapeHtml(g.type) + '</span>';
     html += '</div>';
@@ -1333,6 +1347,92 @@ function renderIniGroups() {
     html = '<div class="rule-empty">暂无策略组，可在下方添加</div>';
   }
   list.innerHTML = html;
+}
+
+// ============== 拖拽排序 ==============
+
+function enableIniDragDrop() {
+  // 规则集拖拽
+  var rsList = document.getElementById('iniRulesetList');
+  if (rsList) {
+    rsList.ondragstart = function(e) {
+      var item = e.target.closest('.ini-ruleset-item');
+      if (!item) { e.preventDefault(); return; }
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', item.getAttribute('data-index'));
+      item.classList.add('dragging');
+    };
+    rsList.ondragend = function(e) {
+      rsList.querySelectorAll('.ini-ruleset-item').forEach(function(el) {
+        el.classList.remove('dragging', 'drag-over');
+      });
+    };
+    rsList.ondragover = function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var item = e.target.closest('.ini-ruleset-item');
+      if (item) item.classList.add('drag-over');
+    };
+    rsList.ondragleave = function(e) {
+      var item = e.target.closest('.ini-ruleset-item');
+      if (item) item.classList.remove('drag-over');
+    };
+    rsList.ondrop = function(e) {
+      e.preventDefault();
+      var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      var toItem = e.target.closest('.ini-ruleset-item');
+      if (!toItem) return;
+      var toIdx = parseInt(toItem.getAttribute('data-index'));
+      if (isNaN(fromIdx) || isNaN(toIdx) || fromIdx === toIdx) return;
+      var parsed = getIniParsed();
+      if (!parsed.valid) return;
+      var item = parsed.rulesets.splice(fromIdx, 1)[0];
+      parsed.rulesets.splice(toIdx, 0, item);
+      syncIniToEditor(parsed);
+    };
+  }
+
+  // 策略组拖拽
+  var grList = document.getElementById('iniGroupList');
+  if (grList) {
+    grList.ondragstart = function(e) {
+      var handle = e.target.closest('.drag-handle');
+      if (!handle) { e.preventDefault(); return; }
+      var card = handle.closest('.ini-group-card');
+      if (!card) return;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.getAttribute('data-index'));
+      card.classList.add('dragging');
+    };
+    grList.ondragend = function(e) {
+      grList.querySelectorAll('.ini-group-card').forEach(function(el) {
+        el.classList.remove('dragging', 'drag-over');
+      });
+    };
+    grList.ondragover = function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var card = e.target.closest('.ini-group-card');
+      if (card) card.classList.add('drag-over');
+    };
+    grList.ondragleave = function(e) {
+      var card = e.target.closest('.ini-group-card');
+      if (card) card.classList.remove('drag-over');
+    };
+    grList.ondrop = function(e) {
+      e.preventDefault();
+      var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      var toCard = e.target.closest('.ini-group-card');
+      if (!toCard) return;
+      var toIdx = parseInt(toCard.getAttribute('data-index'));
+      if (isNaN(fromIdx) || isNaN(toIdx) || fromIdx === toIdx) return;
+      var parsed = getIniParsed();
+      if (!parsed.valid) return;
+      var item = parsed.groups.splice(fromIdx, 1)[0];
+      parsed.groups.splice(toIdx, 0, item);
+      syncIniToEditor(parsed);
+    };
+  }
 }
 
 function onIniGroupTypeChange(index) {
@@ -1412,12 +1512,21 @@ function removeIniGroupOption(groupIdx, optIdx) {
 }
 
 function addIniGroup() {
-  var name = document.getElementById('iniNewGroupName').value.trim();
-  var type = document.getElementById('iniNewGroupType').value;
+  var nameEl = document.getElementById('iniNewGroupName');
+  var typeEl = document.getElementById('iniNewGroupType');
+  if (!nameEl || !typeEl) {
+    showToast('添加表单元素未找到，请刷新页面重试', 'error');
+    return;
+  }
+  var name = nameEl.value.trim();
+  var type = typeEl.value;
   if (!name) { showToast('请输入策略组名称', 'error'); return; }
 
   var parsed = getIniParsed();
-  if (!parsed.valid) return;
+  if (!parsed.valid) {
+    showToast('INI 文件格式异常，无法添加', 'error');
+    return;
+  }
 
   var group = { name: name, type: type, options: [], filter: '', testUrl: '', interval: '300', tolerance: '', failures: '' };
   if (type === 'select') {
@@ -1426,6 +1535,8 @@ function addIniGroup() {
 
   parsed.groups.push(group);
   syncIniToEditor(parsed);
+  // 清空添加表单的输入框
+  nameEl.value = '';
   showToast('策略组已添加', 'success');
 }
 
