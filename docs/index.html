@@ -238,7 +238,7 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
   padding: 7px 10px; border-radius: 4px; font-size: 13px;
 }
 .ini-search-input:focus { outline: none; border-color: var(--primary); }
-.ini-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.ini-list { display: flex; flex-direction: column; gap: 6px; }
 .ini-ruleset-item {
   background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -1336,7 +1336,33 @@ function renderIniGroups() {
 }
 
 function onIniGroupTypeChange(index) {
-  renderIniGroups();
+  var parsed = getIniParsed();
+  if (!parsed.valid || !parsed.groups[index]) return;
+  var newType = document.getElementById('iniGroupType' + index).value;
+
+  // 类型改变了，需要转换数据结构
+  if (parsed.groups[index].type !== newType) {
+    if (newType === 'select') {
+      // 从 url-test 切到 select：保留 filter 为默认选项
+      parsed.groups[index].options = parsed.groups[index].filter ? [parsed.groups[index].filter] : ['[]DIRECT'];
+      parsed.groups[index].filter = '';
+      parsed.groups[index].testUrl = '';
+      parsed.groups[index].interval = '300';
+      parsed.groups[index].tolerance = '';
+      parsed.groups[index].failures = '';
+    } else {
+      // 从 select 切到 url-test：继承第一个选项作为 filter
+      parsed.groups[index].filter = parsed.groups[index].options.length > 0 ? parsed.groups[index].options[0] : '';
+      parsed.groups[index].options = [];
+      parsed.groups[index].testUrl = 'http://www.gstatic.com/generate_204';
+      parsed.groups[index].interval = '300';
+      parsed.groups[index].tolerance = '';
+      parsed.groups[index].failures = '';
+    }
+    parsed.groups[index].type = newType;
+  }
+
+  syncIniToEditor(parsed);
 }
 
 function updateIniGroup(index) {
