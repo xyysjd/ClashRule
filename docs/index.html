@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clash 规则编辑器</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --accent: #0f3460;
+  --primary: #e94560;
+  --text: #eee;
+  --muted: #8892b0;
+  --border: #2a2a4a;
+  --success: #4caf50;
+  --warning: #ff9800;
+  --danger: #f44336;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+}
+header {
+  background: var(--card); padding: 16px 24px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+}
+header h1 { font-size: 20px; display: flex; align-items: center; gap: 8px; }
+header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
+.header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+
+/* 设置面板 */
+.settings-panel {
+  background: var(--card); border-radius: 8px; padding: 16px; margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.settings-panel h2 { font-size: 15px; margin-bottom: 12px; color: var(--muted); }
+.settings-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.settings-row label { font-size: 13px; color: var(--muted); }
+.settings-row input {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 12px;
+  border-radius: 4px; font-size: 13px; flex: 1; min-width: 200px;
+}
+.settings-row input:focus { outline: none; border-color: var(--primary); }
+.btn {
+  padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;
+  font-weight: 500; transition: opacity 0.2s; white-space: nowrap;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-warning { background: var(--warning); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* 文件列表 */
+.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.file-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
+  cursor: pointer; transition: all 0.2s;
+}
+.file-card:hover { border-color: var(--primary); transform: translateY(-1px); }
+.file-card.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.file-card.dirty { border-color: var(--warning); }
+.file-card .file-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.file-card .file-desc { font-size: 12px; color: var(--muted); }
+.file-card .file-status { font-size: 11px; margin-top: 8px; padding: 2px 8px; border-radius: 3px; display: inline-block; }
+.file-status.loaded { background: rgba(76,175,80,0.15); color: var(--success); }
+.file-status.error { background: rgba(244,67,54,0.15); color: var(--danger); }
+.file-status.pending { background: rgba(255,152,0,0.15); color: var(--warning); }
+.file-status.dirty { background: rgba(255,152,0,0.25); color: var(--warning); }
+
+/* 编辑器区域 */
+.editor-section { display: none; }
+.editor-section.visible { display: block; }
+.editor-toolbar {
+  background: var(--card); border: 1px solid var(--border); border-bottom: none; border-radius: 8px 8px 0 0;
+  padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.editor-toolbar .file-title { font-size: 15px; font-weight: 600; }
+.editor-toolbar .file-path { font-size: 12px; color: var(--muted); font-weight: normal; }
+.editor-actions { display: flex; gap: 6px; }
+.editor-wrapper {
+  border: 1px solid var(--border); border-radius: 0 0 8px 8px; overflow: hidden; margin-bottom: 20px;
+}
+.editor-wrapper textarea {
+  width: 100%; min-height: 400px; background: #0d1117; color: #c9d1d9; font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px; line-height: 1.6; padding: 16px; border: none; resize: vertical; tab-size: 2;
+}
+.editor-wrapper textarea:focus { outline: none; }
+.editor-info {
+  background: var(--card); padding: 8px 16px; font-size: 12px; color: var(--muted);
+  border-top: 1px solid var(--border); display: flex; justify-content: space-between;
+}
+
+/* 规则管理 */
+.rule-manager {
+  background: var(--card); border: 1px solid var(--border); border-bottom: none;
+  padding: 14px 16px; display: none;
+}
+.rule-manager.visible { display: block; }
+.rule-manager-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.rule-manager-header strong { font-size: 14px; }
+.rule-manager-header span { font-size: 12px; color: var(--muted); }
+.rule-add-row { display: grid; grid-template-columns: 160px minmax(180px, 1fr) 160px auto; gap: 8px; margin-bottom: 10px; }
+.rule-add-row select,
+.rule-add-row input,
+.rule-filter-input {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 10px; border-radius: 4px; font-size: 13px;
+}
+.rule-add-row select:focus,
+.rule-add-row input:focus,
+.rule-filter-input:focus { outline: none; border-color: var(--primary); }
+.rule-filter-input { width: 100%; margin-bottom: 10px; }
+.rule-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+.rule-item {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.rule-text { min-width: 0; font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace; font-size: 12px; word-break: break-all; }
+.rule-type { color: var(--success); font-weight: 600; }
+.rule-value { color: var(--text); }
+.rule-option { color: var(--warning); }
+.rule-empty { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; border: 1px dashed var(--border); border-radius: 6px; }
+.rule-error { color: var(--warning); font-size: 13px; padding: 12px; background: rgba(255,152,0,0.1); border-radius: 6px; }
+.file-type-tag { font-size: 11px; margin-left: 6px; color: var(--muted); font-weight: normal; }
+
+/* 提交面板 */
+.commit-panel {
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 20px;
+  display: none;
+}
+.commit-panel.visible { display: block; }
+.commit-panel h3 { font-size: 14px; margin-bottom: 8px; }
+.commit-panel .dirty-count { font-size: 12px; color: var(--warning); font-weight: normal; margin-left: 8px; }
+.commit-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 12px; border-radius: 4px; font-size: 13px; margin-bottom: 10px;
+}
+.commit-input:focus { outline: none; border-color: var(--primary); }
+.commit-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 批量提交文件列表 */
+.commit-file-list {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+  margin-bottom: 10px; max-height: 240px; overflow-y: auto;
+}
+.commit-file-item {
+  padding: 8px 12px; font-size: 13px; display: flex;
+  justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.commit-file-item:last-child { border-bottom: none; }
+.commit-file-item .file-label { color: var(--text); }
+.commit-file-item .file-status-label { color: var(--warning); font-size: 12px; }
+.commit-progress {
+  margin-bottom: 10px; display: none;
+}
+.commit-progress.visible { display: block; }
+.commit-progress-bar {
+  background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 6px;
+}
+.commit-progress-fill {
+  background: var(--success); height: 100%; width: 0%; transition: width 0.3s;
+}
+.commit-progress-text { font-size: 12px; color: var(--muted); }
+
+/* 状态消息 */
+.toast {
+  position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 6px; font-size: 13px;
+  z-index: 9999; transform: translateX(120%); transition: transform 0.3s; max-width: 400px;
+}
+.toast.show { transform: translateX(0); }
+.toast.success { background: var(--success); color: #fff; }
+.toast.error { background: var(--danger); color: #fff; }
+.toast.info { background: var(--accent); color: #fff; }
+
+/* 加载 */
+.loading { text-align: center; padding: 40px; color: var(--muted); }
+.spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 模态框 */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9998; display: none; }
+.modal-overlay.show { display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; }
+.modal h3 { font-size: 16px; margin-bottom: 12px; }
+.modal p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .container { padding: 12px; }
+  header { padding: 12px 16px; }
+  header h1 { font-size: 17px; }
+  .file-grid { grid-template-columns: 1fr; }
+  .editor-wrapper textarea { min-height: 300px; }
+  .settings-row input { min-width: 120px; }
+  .editor-toolbar { flex-direction: column; align-items: flex-start; }
+  .rule-add-row { grid-template-columns: 1fr; }
+  .rule-item { align-items: flex-start; flex-direction: column; }
+}
+
+.diff-content { background: #0d1117; border: 1px solid var(--border); border-radius: 4px; padding: 12px; font-family: monospace; font-size: 12px; line-height: 1.5; margin-top: 8px; max-height: 300px; overflow-y: auto; }
+.diff-added { color: #7ee787; }
+.diff-removed { color: #f85149; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ Clash 规则编辑器 <small>在线编辑 · 一键推送</small></h1>
+  <div class="header-actions">
+    <button class="btn btn-success" id="batchPushBtn" onclick="showBatchCommit()">📤 全部推送</button>
+    <button class="btn btn-outline" onclick="refreshAllFiles()">🔄 刷新</button>
+    <button class="btn btn-outline" onclick="showSettings()">⚙️ 设置</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 设置面板 -->
+  <div class="settings-panel" id="settingsPanel" style="display:none">
+    <h2>⚙️ GitHub 设置</h2>
+    <div class="settings-row">
+      <label>Token</label>
+      <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxx" value="">
+      <label>仓库</label>
+      <input type="text" id="repoInput" placeholder="用户名/仓库名" value="">
+      <label>分支</label>
+      <input type="text" id="branchInput" placeholder="main" value="main">
+      <button class="btn btn-success btn-sm" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+
+  <!-- 文件列表 -->
+  <div id="fileList" class="file-grid"></div>
+
+  <!-- 编辑器 -->
+  <div class="editor-section" id="editorSection">
+    <div class="editor-toolbar">
+      <div>
+        <span class="file-title" id="editorTitle">文件名</span>
+        <span class="file-path" id="editorPath">路径</span>
+      </div>
+      <div class="editor-actions">
+        <button class="btn btn-warning btn-sm" onclick="showDiff()">📝 对比</button>
+        <button class="btn btn-primary btn-sm" onclick="saveFile()">💾 保存</button>
+      </div>
+    </div>
+    <div class="rule-manager" id="ruleManager">
+      <div class="rule-manager-header">
+        <strong>🧩 可视化规则管理</strong>
+        <span id="ruleCount">0 条规则</span>
+      </div>
+      <div class="rule-add-row">
+        <select id="ruleTypeInput" title="规则类型">
+          <option value="DOMAIN-SUFFIX">DOMAIN-SUFFIX</option>
+          <option value="DOMAIN">DOMAIN</option>
+          <option value="DOMAIN-KEYWORD">DOMAIN-KEYWORD</option>
+          <option value="IP-CIDR">IP-CIDR</option>
+          <option value="IP-CIDR6">IP-CIDR6</option>
+          <option value="GEOIP">GEOIP</option>
+          <option value="PROCESS-NAME">PROCESS-NAME</option>
+          <option value="DOMAIN-WILDCARD">DOMAIN-WILDCARD</option>
+          <option value="SRC-IP-CIDR">SRC-IP-CIDR</option>
+          <option value="DST-PORT">DST-PORT</option>
+          <option value="SRC-PORT">SRC-PORT</option>
+        </select>
+        <input id="ruleValueInput" placeholder="规则值，例如 example.com 或 1.2.3.4/32">
+        <input id="ruleOptionInput" placeholder="可选参数，例如 no-resolve">
+        <button class="btn btn-success" onclick="addPayloadRule()">➕ 添加规则</button>
+      </div>
+      <input class="rule-filter-input" id="ruleFilterInput" placeholder="搜索规则，例如 github" oninput="filterPayloadRules()">
+      <div class="rule-list" id="ruleList"></div>
+    </div>
+    <div class="editor-wrapper">
+      <textarea id="editorContent" spellcheck="false"></textarea>
+      <div class="editor-info">
+        <span id="editorLines">行数: 0</span>
+        <span id="editorSize">大小: 0 B</span>
+      </div>
+    </div>
+
+    <!-- 提交面板 -->
+    <div class="commit-panel" id="commitPanel">
+      <h3>📤 批量提交到 GitHub <span class="dirty-count" id="dirtyCount"></span></h3>
+      <input class="commit-input" id="commitMessage" placeholder="提交说明" value="更新规则">
+      <div class="commit-progress" id="commitProgress">
+        <div class="commit-progress-bar"><div class="commit-progress-fill" id="commitProgressFill"></div></div>
+        <div class="commit-progress-text" id="commitProgressText"></div>
+      </div>
+      <div id="commitFileList" class="commit-file-list"></div>
+      <div class="commit-actions">
+        <button class="btn btn-success" id="commitAllBtn" onclick="commitAllFiles()">🚀 全部推送</button>
+        <button class="btn btn-outline" onclick="hideCommitPanel()">取消</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 模态框 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">标题</h3>
+    <p id="modalBody">内容</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============== 状态 ==============
+const state = {
+  token: '',
+  repo: '',
+  branch: 'main',
+  files: [],
+  currentFile: null,
+  originalContent: '',
+  originalContents: {}, // path -> 原始 GitHub 内容（用于 dirty 检测和 diff）
+  ruleFilter: '',
+  fileBuffers: {},   // path -> 当前编辑内容
+  dirtyFiles: {},    // path -> true（已修改未推送）
+};
+
+// 从 localStorage 恢复设置
+try {
+  const saved = JSON.parse(localStorage.getItem('clash-editor-settings') || '{}');
+  state.token = saved.token || '';
+  state.repo = saved.repo || 'xyysjd/ClashRule';
+  state.branch = saved.branch || 'main';
+} catch(e) {}
+
+// ============== 文件清单 ==============
+const FILE_LIST = [
+  { name: 'GeneralClashRule.ini', path: 'GeneralClashRule.ini', desc: '主规则配置文件（分组、代理策略）', type: 'ini' },
+  { name: 'guonei.yaml', path: 'guonei.yaml', desc: '国内流量规则', type: 'yaml-payload' },
+  { name: 'guowai.yaml', path: 'guowai.yaml', desc: '国外流量规则', type: 'yaml-payload' },
+  { name: 'Emby.yaml', path: 'Emby.yaml', desc: 'EMBY 规则', type: 'yaml-payload' },
+  { name: 'zlemby.yaml', path: 'zlemby.yaml', desc: '直连 EMBY 规则', type: 'yaml-payload' },
+  { name: 'trakt.yaml', path: 'trakt.yaml', desc: 'Trakt 规则', type: 'yaml-payload' },
+];
+
+function isYamlPayloadFile(fileMeta) {
+  return fileMeta && fileMeta.type === 'yaml-payload';
+}
+
+// ============== API 工具 ==============
+async function ghApi(path, method, body) {
+  method = method || 'GET';
+  const headers = {
+    'Authorization': 'token ' + state.token,
+    'Accept': 'application/vnd.github.v3+json',
+  };
+  if (body) {
+    headers['Content-Type'] = 'application/json';
+  }
+  // 请求仓库根信息时 path 可能是空字符串，直接用仓库 API
+  var url;
+  if (!path || path === '') {
+    url = 'https://api.github.com/repos/' + state.repo;
+  } else {
+    url = 'https://api.github.com/repos/' + state.repo + '/' + path;
+  }
+  // 去掉路径末尾多余的 /
+  if (url.endsWith('/')) url = url.slice(0, -1);
+  const res = await fetch(url, { method: method, headers: headers, body: body ? JSON.stringify(body) : null });
+  if (!res.ok) {
+    // 尝试读取详细的错误信息
+    try {
+      const err = await res.json();
+      throw new Error(err.message + ' (HTTP ' + res.status + ')');
+    } catch(parseErr) {
+      if (parseErr instanceof Error && parseErr.message !== res.statusText) throw parseErr;
+      throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+    }
+  }
+  return res.json();
+}
+
+/** UTF-8 安全的 base64 解码 */
+function base64Decode(str) {
+  var binary = atob(str);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+/** UTF-8 安全的 base64 编码 */
+function base64Encode(str) {
+  var bytes = new TextEncoder().encode(str);
+  var binary = '';
+  for (var i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// 获取文件 SHA 和内容
+async function getFileSha(filePath) {
+  try {
+    const data = await ghApi('contents/' + filePath);
+    return { sha: data.sha, content: base64Decode(data.content) };
+  } catch(e) {
+    if (e.message.indexOf('404') >= 0 || e.message.indexOf('Not Found') >= 0) {
+      return { sha: null, content: '' };
+    }
+    throw e;
+  }
+}
+
+// ============== 界面函数 ==============
+
+function showToast(msg, type) {
+  type = type || 'info';
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+function showModal(title, body) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').textContent = body;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+function showSettings() {
+  var panel = document.getElementById('settingsPanel');
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    document.getElementById('tokenInput').value = state.token;
+    document.getElementById('repoInput').value = state.repo;
+    document.getElementById('branchInput').value = state.branch;
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function saveSettings() {
+  state.token = document.getElementById('tokenInput').value.trim();
+  state.repo = document.getElementById('repoInput').value.trim();
+  state.branch = document.getElementById('branchInput').value.trim() || 'main';
+  localStorage.setItem('clash-editor-settings', JSON.stringify({
+    token: state.token, repo: state.repo, branch: state.branch,
+  }));
+  document.getElementById('settingsPanel').style.display = 'none';
+  showToast('设置已保存', 'success');
+  refreshAllFiles();
+}
+
+function getDirtyCount() {
+  return Object.keys(state.dirtyFiles).length;
+}
+
+function updateBatchPushButton() {
+  var btn = document.getElementById('batchPushBtn');
+  var count = getDirtyCount();
+  btn.textContent = count > 0 ? '📤 全部推送 (' + count + ')' : '📤 全部推送';
+  btn.disabled = count === 0;
+}
+
+function renderFileList() {
+  var container = document.getElementById('fileList');
+  var html = '';
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    var f = FILE_LIST[i];
+    var file = null;
+    for (var j = 0; j < state.files.length; j++) {
+      if (state.files[j].path === f.path) { file = state.files[j]; break; }
+    }
+    var isDirty = !!state.dirtyFiles[f.path];
+    var status = '';
+    var statusText = '';
+    if (isDirty) {
+      status = 'dirty';
+      statusText = '已修改';
+    } else if (file) {
+      status = file.error ? 'error' : 'loaded';
+      statusText = file.error ? '加载失败' : '已加载';
+    } else {
+      status = 'pending';
+      statusText = '待加载';
+    }
+    var isActive = state.currentFile && state.currentFile.path === f.path;
+    var cardClass = 'file-card' + (isActive ? ' active' : '') + (isDirty ? ' dirty' : '');
+    html += '<div class="' + cardClass + '" onclick="selectFile(\'' + f.path + '\')">' +
+      '<div class="file-name">📄 ' + f.name + (isYamlPayloadFile(f) ? '<span class="file-type-tag">规则管理</span>' : '') + '</div>' +
+      '<div class="file-desc">' + f.desc + '</div>' +
+      '<span class="file-status ' + status + '">' + statusText + '</span></div>';
+  }
+  container.innerHTML = html;
+}
+
+async function refreshAllFiles() {
+  showToast('正在连接 GitHub...', 'info');
+  try {
+    // 验证 token 和仓库是否可访问
+    const repoData = await ghApi('');
+    // 不清除 fileBuffers 和 dirtyFiles，保留本地修改
+    if (!state.currentFile) {
+      document.getElementById('editorSection').classList.remove('visible');
+    }
+    renderRuleManager();
+    renderFileList();
+    updateBatchPushButton();
+    showToast('已连接: ' + repoData.full_name, 'success');
+  } catch(e) {
+    var msg = e.message;
+    if (msg.indexOf('401') >= 0) {
+      msg = 'Token 无效或已过期，请检查 ⚙️ 设置中的 Token';
+    } else if (msg.indexOf('403') >= 0) {
+      msg = 'Token 权限不足或 API 频率限制，请检查 Token 权限（需要 repo 权限）';
+    } else if (msg.indexOf('404') >= 0) {
+      msg = '仓库不存在，请检查 ⚙️ 设置中的仓库名';
+    } else if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0) {
+      msg = '网络请求失败，可能是 CORS 或网络问题。如果你是第一次使用，请确认 Token 未被 GitHub 撤销（之前推送时被检测到泄露可能已被自动撤销），建议重新生成一个新 Token';
+    }
+    showToast('连接失败: ' + msg, 'error');
+  }
+}
+
+async function selectFile(filePath) {
+  var fileMeta = null;
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    if (FILE_LIST[i].path === filePath) { fileMeta = FILE_LIST[i]; break; }
+  }
+  if (!fileMeta) return;
+
+  // ====== 自动保存当前文件到缓冲区 ======
+  if (state.currentFile) {
+    var currentContent = document.getElementById('editorContent').value;
+    var currentPath = state.currentFile.path;
+    state.fileBuffers[currentPath] = currentContent;
+    // 对比原始 GitHub 内容，而非 originalContent（可能已被缓冲区覆盖）
+    if (currentContent !== state.originalContents[currentPath]) {
+      state.dirtyFiles[currentPath] = true;
+    } else {
+      delete state.dirtyFiles[currentPath];
+    }
+  }
+
+  document.getElementById('editorTitle').textContent = fileMeta.name;
+  document.getElementById('editorPath').textContent = filePath;
+  document.getElementById('editorSection').classList.add('visible');
+  document.getElementById('commitPanel').classList.remove('visible');
+  updateBatchPushButton();
+
+  // ====== 如果缓冲区有内容，直接从缓冲区加载（不发起网络请求） ======
+  if (state.fileBuffers[filePath] !== undefined) {
+    state.currentFile = { path: filePath, sha: null, meta: fileMeta };
+    state.originalContent = state.fileBuffers[filePath];
+    document.getElementById('editorContent').value = state.fileBuffers[filePath];
+    document.getElementById('editorContent').disabled = false;
+    updateEditorInfo();
+    renderRuleManager();
+    renderFileList();
+    return;
+  }
+
+  document.getElementById('editorContent').value = '加载中...';
+  document.getElementById('editorContent').disabled = true;
+
+  try {
+    const result = await getFileSha(filePath);
+    state.currentFile = { path: filePath, sha: result.sha, meta: fileMeta };
+    state.originalContent = result.content;
+    state.originalContents[filePath] = result.content;
+    state.fileBuffers[filePath] = result.content;
+
+    // 更新文件状态
+    var found = false;
+    for (var idx = 0; idx < state.files.length; idx++) {
+      if (state.files[idx].path === filePath) {
+        state.files[idx] = { path: filePath, meta: fileMeta, loaded: true, error: false };
+        found = true; break;
+      }
+    }
+    if (!found) state.files.push({ path: filePath, meta: fileMeta, loaded: true, error: false });
+
+    document.getElementById('editorContent').value = result.content;
+    document.getElementById('editorContent').disabled = false;
+    updateEditorInfo();
+    renderRuleManager();
+    renderFileList();
+  } catch(e) {
+    showToast('加载 ' + filePath + ' 失败: ' + e.message, 'error');
+    var found2 = false;
+    for (var idx2 = 0; idx2 < state.files.length; idx2++) {
+      if (state.files[idx2].path === filePath) {
+        state.files[idx2] = { path: filePath, meta: fileMeta, loaded: false, error: true };
+        found2 = true; break;
+      }
+    }
+    if (!found2) state.files.push({ path: filePath, meta: fileMeta, loaded: false, error: true });
+    document.getElementById('editorContent').value = '';
+    document.getElementById('editorContent').disabled = false;
+    renderRuleManager();
+    renderFileList();
+  }
+}
+
+function updateEditorInfo() {
+  var text = document.getElementById('editorContent').value;
+  var lines = text.split(/\n/).length - 1;
+  document.getElementById('editorLines').textContent = '行数: ' + lines;
+  var size = text.length;
+  document.getElementById('editorSize').textContent = '大小: ' + (size >= 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B');
+}
+
+document.getElementById('editorContent').addEventListener('input', function() {
+  updateEditorInfo();
+  renderRuleManager();
+});
+
+// 保存当前文件到缓冲区（不再立即弹出提交面板）
+function saveFile() {
+  if (!state.currentFile) return;
+  var content = document.getElementById('editorContent').value;
+  var path = state.currentFile.path;
+  state.fileBuffers[path] = content;
+  if (content !== state.originalContents[path]) {
+    state.dirtyFiles[path] = true;
+    showToast('✅ ' + state.currentFile.meta.name + ' 已保存（待推送）', 'success');
+  } else {
+    delete state.dirtyFiles[path];
+    showToast('内容未改变', 'info');
+  }
+  renderFileList();
+  updateBatchPushButton();
+}
+
+function hideCommitPanel() {
+  document.getElementById('commitPanel').classList.remove('visible');
+  document.getElementById('commitProgress').classList.remove('visible');
+}
+
+function showBatchCommit() {
+  var count = getDirtyCount();
+  if (count === 0) {
+    showToast('没有需要提交的文件', 'info');
+    return;
+  }
+  // 先自动保存当前编辑器内容
+  if (state.currentFile) {
+    var content = document.getElementById('editorContent').value;
+    var path = state.currentFile.path;
+    state.fileBuffers[path] = content;
+    if (content !== state.originalContents[path]) {
+      state.dirtyFiles[path] = true;
+    } else {
+      delete state.dirtyFiles[path];
+    }
+    renderFileList();
+    updateBatchPushButton();
+  }
+  // 重新统计（可能刚才有变化）
+  count = getDirtyCount();
+  if (count === 0) {
+    showToast('没有需要提交的文件', 'info');
+    return;
+  }
+  document.getElementById('dirtyCount').textContent = count + ' 个文件待推送';
+  // 渲染待提交文件列表
+  var listHtml = '';
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    var f = FILE_LIST[i];
+    if (state.dirtyFiles[f.path]) {
+      listHtml += '<div class="commit-file-item">' +
+        '<span class="file-label">📄 ' + f.name + '</span>' +
+        '<span class="file-status-label">已修改</span></div>';
+    }
+  }
+  document.getElementById('commitFileList').innerHTML = listHtml;
+  document.getElementById('commitMessage').value = '更新规则';
+  document.getElementById('commitProgress').classList.remove('visible');
+  document.getElementById('commitAllBtn').disabled = false;
+  document.getElementById('commitAllBtn').textContent = '🚀 全部推送';
+  document.getElementById('commitPanel').classList.add('visible');
+}
+
+async function commitAllFiles() {
+  var message = document.getElementById('commitMessage').value.trim() || '更新规则';
+  var btn = document.getElementById('commitAllBtn');
+  var progress = document.getElementById('commitProgress');
+  var fill = document.getElementById('commitProgressFill');
+  var text = document.getElementById('commitProgressText');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 提交中...';
+  progress.classList.add('visible');
+
+  // 收集所有待推送文件
+  var fileEntries = [];
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    if (state.dirtyFiles[FILE_LIST[i].path]) {
+      var content = state.fileBuffers[FILE_LIST[i].path];
+      if (content === undefined) continue;
+      fileEntries.push({ path: FILE_LIST[i].path, name: FILE_LIST[i].name, content: content });
+    }
+  }
+  var total = fileEntries.length;
+  if (total === 0) {
+    showToast('没有需要提交的文件', 'info');
+    btn.disabled = false;
+    btn.textContent = '🚀 全部推送';
+    return;
+  }
+
+  text.textContent = '正在准备提交，共 ' + total + ' 个文件...';
+  fill.style.width = '20%';
+
+  try {
+    // 1. 获取当前分支的最新 commit
+    var refData = await ghApi('git/refs/heads/' + state.branch);
+    var latestCommitSha = refData.object.sha;
+
+    // 2. 获取当前 commit 的 tree SHA
+    var commitData = await ghApi('git/commits/' + latestCommitSha);
+    var baseTreeSha = commitData.tree.sha;
+
+    // 3. 为每个修改的文件创建 blob
+    var treeEntries = [];
+    for (var idx = 0; idx < fileEntries.length; idx++) {
+      var entry = fileEntries[idx];
+      text.textContent = '正在处理 ' + (idx + 1) + '/' + total + '：' + entry.name + '...';
+      fill.style.width = (20 + (idx / total) * 40) + '%';
+
+      var blobData = await ghApi('git/blobs', 'POST', {
+        content: entry.content,
+        encoding: 'utf-8',
+      });
+      treeEntries.push({
+        path: entry.path,
+        mode: '100644',
+        type: 'blob',
+        sha: blobData.sha,
+      });
+    }
+
+    // 4. 创建新 tree（基于 base tree + 修改的文件）
+    text.textContent = '正在创建提交树...';
+    fill.style.width = '65%';
+    var newTreeData = await ghApi('git/trees', 'POST', {
+      base_tree: baseTreeSha,
+      tree: treeEntries,
+    });
+
+    // 5. 创建 commit
+    text.textContent = '正在创建提交...';
+    fill.style.width = '80%';
+    var newCommitData = await ghApi('git/commits', 'POST', {
+      message: message,
+      tree: newTreeData.sha,
+      parents: [latestCommitSha],
+    });
+
+    // 6. 更新分支引用
+    text.textContent = '正在更新分支引用...';
+    fill.style.width = '90%';
+    await ghApi('git/refs/heads/' + state.branch, 'PATCH', {
+      sha: newCommitData.sha,
+      force: false,
+    });
+
+    // 标记所有文件为已推送
+    for (var j = 0; j < fileEntries.length; j++) {
+      var fp = fileEntries[j].path;
+      delete state.dirtyFiles[fp];
+      state.originalContents[fp] = fileEntries[j].content;
+    }
+    if (state.currentFile) {
+      state.originalContent = state.originalContents[state.currentFile.path] || '';
+      state.currentFile.sha = null;
+    }
+
+    fill.style.width = '100%';
+    text.textContent = '✅ 全部 ' + total + ' 个文件已合并推送（1 次提交）';
+    showToast('✅ 全部 ' + total + ' 个文件推送成功（1 次提交）', 'success');
+    renderFileList();
+    updateBatchPushButton();
+    renderRuleManager();
+    document.getElementById('commitPanel').classList.remove('visible');
+  } catch(e) {
+    fill.style.width = '100%';
+    text.textContent = '❌ 推送失败';
+    showToast('❌ 推送失败: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '🚀 重试推送';
+    document.getElementById('commitFileList').innerHTML =
+      '<div class="commit-file-item"><span class="file-label" style="color:var(--danger)">❌ ' + escapeHtml(e.message) + '</span></div>';
+  }
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function parsePayloadYaml(content) {
+  var lines = content.split(/\r?\n/);
+  var payloadIndex = -1;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === 'payload:') {
+      payloadIndex = i;
+      break;
+    }
+  }
+  if (payloadIndex < 0) {
+    return { valid: false, error: '未找到 payload:，请使用文本编辑器修改', headerLines: lines, rules: [] };
+  }
+
+  var parsed = {
+    valid: true,
+    error: '',
+    headerLines: lines.slice(0, payloadIndex),
+    rules: [],
+  };
+
+  for (var idx = payloadIndex + 1; idx < lines.length; idx++) {
+    var line = lines[idx];
+    if (!line.trim()) continue;
+    if (line.trim().charAt(0) === '#') continue;
+
+    var match = line.match(/^\s*-\s*(.+?)\s*$/);
+    if (!match) {
+      parsed.valid = false;
+      parsed.error = '检测到无法识别的规则行：' + line;
+      return parsed;
+    }
+
+    var raw = match[1].trim();
+    var parts = raw.split(',');
+    if (parts.length < 2) {
+      parsed.valid = false;
+      parsed.error = '规则格式不完整：' + raw;
+      return parsed;
+    }
+
+    var type = parts.shift().trim();
+    var value = parts.shift().trim();
+    var option = parts.join(',').trim();
+    parsed.rules.push({
+      raw: buildRuleRaw(type, value, option),
+      type: type,
+      value: value,
+      option: option,
+      line: line,
+    });
+  }
+
+  return parsed;
+}
+
+function serializePayloadYaml(parsed) {
+  var lines = parsed.headerLines ? parsed.headerLines.slice() : [];
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  lines.push('payload:');
+  for (var i = 0; i < parsed.rules.length; i++) {
+    lines.push('  - ' + parsed.rules[i].raw);
+  }
+  return lines.join('\n') + '\n';
+}
+
+function buildRuleRaw(type, value, option) {
+  var raw = type.trim().toUpperCase() + ',' + value.trim();
+  option = (option || '').trim();
+  if (option) raw += ',' + option;
+  return raw;
+}
+
+function validatePayloadRule(type, value, option) {
+  type = (type || '').trim().toUpperCase();
+  value = (value || '').trim();
+  option = (option || '').trim();
+
+  if (!type) return { ok: false, message: '规则类型不能为空' };
+  if (!value) return { ok: false, message: '规则值不能为空' };
+  if (/\r|\n/.test(type + value + option)) return { ok: false, message: '规则内容不能包含换行' };
+  if (!/^[A-Z0-9-]+$/.test(type)) return { ok: false, message: '规则类型只能包含大写字母、数字和短横线' };
+
+  var warning = '';
+  if ((type === 'DOMAIN' || type === 'DOMAIN-SUFFIX' || type === 'DOMAIN-KEYWORD') && (/^https?:\/\//i.test(value) || value.indexOf('/') >= 0)) {
+    warning = '域名规则通常不需要 http://、https:// 或路径';
+  } else if ((type === 'IP-CIDR' || type === 'IP-CIDR6') && value.indexOf('/') < 0) {
+    warning = 'CIDR 规则通常需要包含 / 掩码，例如 1.2.3.4/32';
+  }
+
+  return { ok: true, message: warning };
+}
+
+function renderRuleManager() {
+  var manager = document.getElementById('ruleManager');
+  var list = document.getElementById('ruleList');
+  var count = document.getElementById('ruleCount');
+  if (!manager || !list || !count) return;
+
+  if (!state.currentFile || !isYamlPayloadFile(state.currentFile.meta)) {
+    manager.classList.remove('visible');
+    list.innerHTML = '';
+    count.textContent = '0 条规则';
+    return;
+  }
+
+  manager.classList.add('visible');
+  var parsed = parsePayloadYaml(document.getElementById('editorContent').value);
+  if (!parsed.valid) {
+    count.textContent = '格式无法识别';
+    list.innerHTML = '<div class="rule-error">' + escapeHtml(parsed.error || '当前文件不是标准 payload 格式，请使用文本编辑器修改') + '</div>';
+    return;
+  }
+
+  count.textContent = parsed.rules.length + ' 条规则';
+  var filter = (state.ruleFilter || '').toLowerCase();
+  var html = '';
+  var shown = 0;
+  for (var i = 0; i < parsed.rules.length; i++) {
+    var rule = parsed.rules[i];
+    if (filter && rule.raw.toLowerCase().indexOf(filter) < 0) continue;
+    shown++;
+    html += '<div class="rule-item">' +
+      '<div class="rule-text"><span class="rule-type">' + escapeHtml(rule.type) + '</span>' +
+      '<span class="rule-value">,' + escapeHtml(rule.value) + '</span>' +
+      (rule.option ? '<span class="rule-option">,' + escapeHtml(rule.option) + '</span>' : '') + '</div>' +
+      '<div class="rule-actions"><button class="btn btn-danger btn-sm" onclick="deletePayloadRule(' + i + ')">删除</button></div>' +
+      '</div>';
+  }
+
+  if (!html) {
+    html = '<div class="rule-empty">' + (parsed.rules.length ? '没有匹配的规则' : '暂无规则，可在上方添加') + '</div>';
+  }
+  if (filter) count.textContent = parsed.rules.length + ' 条规则，显示 ' + shown + ' 条';
+  list.innerHTML = html;
+}
+
+function filterPayloadRules() {
+  state.ruleFilter = document.getElementById('ruleFilterInput').value.trim();
+  renderRuleManager();
+}
+
+function addPayloadRule() {
+  var typeInput = document.getElementById('ruleTypeInput');
+  var valueInput = document.getElementById('ruleValueInput');
+  var optionInput = document.getElementById('ruleOptionInput');
+  var type = typeInput.value.trim().toUpperCase();
+  var value = valueInput.value.trim();
+  var option = optionInput.value.trim();
+  var validation = validatePayloadRule(type, value, option);
+  if (!validation.ok) {
+    showToast(validation.message, 'error');
+    return;
+  }
+
+  var parsed = parsePayloadYaml(document.getElementById('editorContent').value);
+  if (!parsed.valid) {
+    showToast(parsed.error || '当前文件格式无法识别，请先修复 payload 格式', 'error');
+    return;
+  }
+
+  var raw = buildRuleRaw(type, value, option);
+  for (var i = 0; i < parsed.rules.length; i++) {
+    if (parsed.rules[i].raw.toLowerCase() === raw.toLowerCase()) {
+      showToast('规则已存在', 'info');
+      return;
+    }
+  }
+
+  parsed.rules.push({ raw: raw, type: type, value: value, option: option });
+  document.getElementById('editorContent').value = serializePayloadYaml(parsed);
+  valueInput.value = '';
+  optionInput.value = '';
+  updateEditorInfo();
+  renderRuleManager();
+  showToast(validation.message || '规则已添加，请保存后提交', validation.message ? 'info' : 'success');
+}
+
+function deletePayloadRule(index) {
+  var parsed = parsePayloadYaml(document.getElementById('editorContent').value);
+  if (!parsed.valid || !parsed.rules[index]) {
+    showToast('规则不存在或文件格式无法识别', 'error');
+    return;
+  }
+  if (!confirm('确定删除规则：' + parsed.rules[index].raw + '？')) return;
+  parsed.rules.splice(index, 1);
+  document.getElementById('editorContent').value = serializePayloadYaml(parsed);
+  updateEditorInfo();
+  renderRuleManager();
+  showToast('规则已删除，请保存后提交', 'success');
+}
+
+function showDiff() {
+  if (!state.currentFile) return;
+  var original = state.originalContents[state.currentFile.path] || '';
+  var current = document.getElementById('editorContent').value;
+  if (original === current) {
+    showModal('对比结果', '内容无变化');
+    document.querySelector('.modal').style.maxWidth = '';
+    return;
+  }
+  var origLines = original.split('\n');
+  var currLines = current.split('\n');
+  var diffHtml = '';
+  var maxLen = Math.max(origLines.length, currLines.length);
+  for (var i = 0; i < maxLen; i++) {
+    var o = origLines[i] !== undefined ? origLines[i] : '';
+    var c = currLines[i] !== undefined ? currLines[i] : '';
+    if (o !== c) {
+      if (o && currLines[i] !== undefined) {
+        diffHtml += '<div class="diff-removed">- ' + escapeHtml(o) + '</div>';
+        diffHtml += '<div class="diff-added">+ ' + escapeHtml(c) + '</div>';
+      } else if (o === '' && currLines[i] !== undefined) {
+        diffHtml += '<div class="diff-added">+ ' + escapeHtml(c) + '</div>';
+      } else {
+        diffHtml += '<div class="diff-removed">- ' + escapeHtml(o) + '</div>';
+      }
+    }
+  }
+  // 显示对比
+  document.getElementById('modalTitle').textContent = '📝 变更对比';
+  document.getElementById('modalBody').innerHTML = '<div class="diff-content">' + diffHtml + '</div>';
+  document.getElementById('modalOverlay').classList.add('show');
+  document.querySelector('.modal').style.maxWidth = '700px';
+}
+
+// ============== 点击外部关闭模态框 ==============
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ============== 初始化 ==============
+document.getElementById('tokenInput').value = state.token;
+document.getElementById('repoInput').value = state.repo;
+document.getElementById('branchInput').value = state.branch;
+renderFileList();
+updateBatchPushButton();
+refreshAllFiles();
+</script>
+</body>
+</html>

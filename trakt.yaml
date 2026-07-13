@@ -1,0 +1,6 @@
+# 内容：trakt
+payload:
+  - DOMAIN-SUFFIX,trakt.tv
+  - DOMAIN-SUFFIX,tmdb.org
+  - DOMAIN-SUFFIX,themoviedb.org
+  - DOMAIN-SUFFIX,api2.qonversion.io
