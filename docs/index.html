@@ -295,10 +295,9 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
 .drag-handle:active { cursor: grabbing; }
 .ini-ruleset-item[draggable="true"] { cursor: grab; }
 .ini-ruleset-item[draggable="true"]:active { cursor: grabbing; }
-.ini-ruleset-item.dragging, .ini-group-card.dragging { opacity: 0.4; }
-.ini-ruleset-item.drag-over, .ini-group-card.drag-over {
-  border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary);
-}
+.ini-ruleset-item.dragging, .ini-group-card.dragging, .ini-chip.dragging { opacity: 0.4; }
+.ini-ruleset-item.drag-over, .ini-group-card.drag-over { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.ini-chip.drag-over { border-color: var(--primary); background: rgba(233,69,96,0.2); }
 
 @media (max-width: 640px) {
   .ini-form-grid { grid-template-columns: 1fr; }
@@ -1268,9 +1267,9 @@ function renderIniGroups() {
   var html = '';
   for (var i = 0; i < parsed.groups.length; i++) {
     var g = parsed.groups[i];
-    html += '<div class="ini-group-card" draggable="true" data-index="' + i + '">';
+    html += '<div class="ini-group-card" data-index="' + i + '">';
     html += '<div class="ini-group-header">';
-    html += '<span class="drag-handle">⠿</span>';
+    html += '<span class="drag-handle" draggable="true">⠿</span>';
     html += '<span class="ini-group-name">' + escapeHtml(g.name) + '</span>';
     html += '<span class="ini-group-type-badge">' + escapeHtml(g.type) + '</span>';
     html += '</div>';
@@ -1298,10 +1297,10 @@ function renderIniGroups() {
       for (var oi = 0; oi < g.options.length; oi++) {
         var opt = g.options[oi];
         if (opt === '.*') {
-          html += '<span class="ini-chip" style="border-color:var(--primary)">正则筛选: .*</span>';
+          html += '<span class="ini-chip" draggable="true" data-optidx="' + oi + '" style="border-color:var(--primary)">正则筛选: .*</span>';
           continue;
         }
-        html += '<span class="ini-chip ini-chip-removable">' + escapeHtml(opt) +
+        html += '<span class="ini-chip ini-chip-removable" draggable="true" data-optidx="' + oi + '">' + escapeHtml(opt) +
           '<span class="ini-chip-remove" onclick="removeIniGroupOption(' + i + ',' + oi + ')">×</span></span>';
       }
       html += '</div></div>';
@@ -1392,16 +1391,16 @@ function enableIniDragDrop() {
     };
   }
 
-  // 策略组拖拽
+  // 策略组拖拽（仅通过手柄触发，draggable 仅在 handle 上）
   var grList = document.getElementById('iniGroupList');
   if (grList) {
     grList.ondragstart = function(e) {
       var handle = e.target.closest('.drag-handle');
-      if (!handle) { e.preventDefault(); return; }
+      if (!handle || !handle.draggable) { e.preventDefault(); return; }
       var card = handle.closest('.ini-group-card');
       if (!card) return;
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', card.getAttribute('data-index'));
+      e.dataTransfer.setData('text/plain', 'group:' + card.getAttribute('data-index'));
       card.classList.add('dragging');
     };
     grList.ondragend = function(e) {
@@ -1421,7 +1420,9 @@ function enableIniDragDrop() {
     };
     grList.ondrop = function(e) {
       e.preventDefault();
-      var fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      var data = e.dataTransfer.getData('text/plain');
+      if (!data || data.indexOf('group:') !== 0) return;
+      var fromIdx = parseInt(data.substring(6));
       var toCard = e.target.closest('.ini-group-card');
       if (!toCard) return;
       var toIdx = parseInt(toCard.getAttribute('data-index'));
@@ -1433,6 +1434,53 @@ function enableIniDragDrop() {
       syncIniToEditor(parsed);
     };
   }
+
+  // 选项 chip 拖拽
+  document.querySelectorAll('[id^="iniGroupOptions"]').forEach(function(container) {
+    var groupIdx = parseInt(container.id.replace('iniGroupOptions', ''));
+    if (isNaN(groupIdx)) return;
+
+    container.ondragstart = function(e) {
+      var chip = e.target.closest('.ini-chip');
+      if (!chip || !chip.draggable) { e.preventDefault(); return; }
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'chip:' + container.id + ':' + chip.getAttribute('data-optidx'));
+      chip.classList.add('dragging');
+    };
+    container.ondragend = function(e) {
+      container.querySelectorAll('.ini-chip').forEach(function(c) {
+        c.classList.remove('dragging', 'drag-over');
+      });
+    };
+    container.ondragover = function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var chip = e.target.closest('.ini-chip');
+      if (chip) chip.classList.add('drag-over');
+    };
+    container.ondragleave = function(e) {
+      var chip = e.target.closest('.ini-chip');
+      if (chip) chip.classList.remove('drag-over');
+    };
+    container.ondrop = function(e) {
+      e.preventDefault();
+      var data = e.dataTransfer.getData('text/plain');
+      if (!data || data.indexOf('chip:') !== 0) return;
+      var parts = data.split(':');
+      var fromContainerId = parts[1];
+      var fromIdx = parseInt(parts[2]);
+      if (fromContainerId !== container.id) return; // 只处理同一组内的拖拽
+      var toChip = e.target.closest('.ini-chip');
+      if (!toChip) return;
+      var toIdx = parseInt(toChip.getAttribute('data-optidx'));
+      if (isNaN(fromIdx) || isNaN(toIdx) || fromIdx === toIdx) return;
+      var parsed = getIniParsed();
+      if (!parsed.valid || !parsed.groups[groupIdx]) return;
+      var opt = parsed.groups[groupIdx].options.splice(fromIdx, 1)[0];
+      parsed.groups[groupIdx].options.splice(toIdx, 0, opt);
+      syncIniToEditor(parsed);
+    };
+  });
 }
 
 function onIniGroupTypeChange(index) {
