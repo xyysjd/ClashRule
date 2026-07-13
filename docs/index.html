@@ -1391,99 +1391,143 @@ function enableIniDragDrop() {
     };
   }
 
-  // 策略组拖拽 + 选项 chip 拖拽（事件委托在 iniGroupList 上统一处理）
+  // 策略组拖拽（仅通过手柄）
   var grList = document.getElementById('iniGroupList');
   if (grList) {
     grList.addEventListener('dragstart', function(e) {
-      // 判断是否是策略组手柄拖拽
       var handle = e.target.closest('.drag-handle');
-      if (handle && handle.draggable) {
-        var card = handle.closest('.ini-group-card');
-        if (!card) return;
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', 'group:' + card.getAttribute('data-index'));
-        card.classList.add('dragging');
-        return;
-      }
-      // 判断是否是 chip 拖拽
-      var chip = e.target.closest('.ini-chip[draggable="true"]');
-      if (chip) {
-        var groupIdx = chip.getAttribute('data-groupidx');
-        var optIdx = chip.getAttribute('data-optidx');
-        if (groupIdx === null || optIdx === null) return;
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', 'chip:' + groupIdx + ':' + optIdx);
-        chip.classList.add('dragging');
-      }
+      if (!handle || !handle.draggable) { e.preventDefault(); return; }
+      var card = handle.closest('.ini-group-card');
+      if (!card) return;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', 'group:' + card.getAttribute('data-index'));
+      card.classList.add('dragging');
     });
-
     grList.addEventListener('dragend', function(e) {
-      grList.querySelectorAll('.ini-group-card, .ini-chip').forEach(function(el) {
+      grList.querySelectorAll('.ini-group-card').forEach(function(el) {
         el.classList.remove('dragging', 'drag-over');
       });
     });
-
     grList.addEventListener('dragover', function(e) {
-      var chip = e.target.closest('.ini-chip');
-      if (chip && chip.draggable) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        chip.classList.add('drag-over');
-      } else {
-        var card = e.target.closest('.ini-group-card');
-        if (card) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          card.classList.add('drag-over');
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var card = e.target.closest('.ini-group-card');
+      if (card) card.classList.add('drag-over');
+    });
+    grList.addEventListener('dragleave', function(e) {
+      var card = e.target.closest('.ini-group-card');
+      if (card) card.classList.remove('drag-over');
+    });
+    grList.addEventListener('drop', function(e) {
+      e.preventDefault();
+      var data = e.dataTransfer.getData('text/plain');
+      if (!data || data.indexOf('group:') !== 0) return;
+      var fromIdx = parseInt(data.substring(6));
+      var toCard = e.target.closest('.ini-group-card');
+      if (!toCard) return;
+      var toIdx = parseInt(toCard.getAttribute('data-index'));
+      if (isNaN(fromIdx) || isNaN(toIdx) || fromIdx === toIdx) return;
+      var parsed = getIniParsed();
+      if (!parsed.valid) return;
+      var item = parsed.groups.splice(fromIdx, 1)[0];
+      parsed.groups.splice(toIdx, 0, item);
+      syncIniToEditor(parsed);
+    });
+  }
+
+  // 选项 chip 拖拽（使用 mousedown 事件委托 + 全局 mousemove/mouseup）
+  setupChipDrag();
+}
+
+// ============== Chip 模拟拖拽排序 ==============
+
+var chipDragState = null;
+
+function setupChipDrag() {
+  var grList = document.getElementById('iniGroupList');
+  if (!grList) return;
+
+  // 只在 iniGroupList 上委托 mousedown，避免重复绑定
+  if (!grList._chipDragSetup) {
+    grList.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      var target = e.target.closest('.ini-chip-remove');
+      if (target) return; // 删除按钮不触发拖拽
+      var chip = e.target.closest('.ini-chip[draggable="true"]');
+      if (!chip) return;
+      chipDragState = {
+        chip: chip,
+        groupIdx: chip.getAttribute('data-groupidx'),
+        optIdx: parseInt(chip.getAttribute('data-optidx')),
+        startX: e.clientX,
+        startY: e.clientY,
+        moved: false,
+      };
+    });
+    grList._chipDragSetup = true;
+  }
+
+  // 全局 mousemove/mouseup 只绑一次
+  if (!document._chipDragGlobal) {
+    document.addEventListener('mousemove', function(e) {
+      if (!chipDragState) return;
+      var dx = e.clientX - chipDragState.startX;
+      var dy = e.clientY - chipDragState.startY;
+      if (!chipDragState.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+        chipDragState.moved = true;
+        chipDragState.chip.style.opacity = '0.4';
+        chipDragState.chip.style.position = 'relative';
+        chipDragState.chip.style.zIndex = '999';
+      }
+      if (chipDragState.moved) {
+        chipDragState.chip.style.left = dx + 'px';
+        chipDragState.chip.style.top = dy + 'px';
+
+        document.querySelectorAll('.ini-chip.drag-over').forEach(function(c) { c.classList.remove('drag-over'); });
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        if (el) {
+          var targetChip = el.closest('.ini-chip[draggable="true"]');
+          if (targetChip && targetChip !== chipDragState.chip) {
+            targetChip.classList.add('drag-over');
+          }
         }
       }
     });
 
-    grList.addEventListener('dragleave', function(e) {
-      var chip = e.target.closest('.ini-chip');
-      if (chip) chip.classList.remove('drag-over');
-      var card = e.target.closest('.ini-group-card');
-      if (card) card.classList.remove('drag-over');
+    document.addEventListener('mouseup', function(e) {
+      if (!chipDragState) return;
+      if (chipDragState.chip) {
+        chipDragState.chip.style.opacity = '';
+        chipDragState.chip.style.position = '';
+        chipDragState.chip.style.left = '';
+        chipDragState.chip.style.top = '';
+        chipDragState.chip.style.zIndex = '';
+      }
+      document.querySelectorAll('.ini-chip.drag-over').forEach(function(c) { c.classList.remove('drag-over'); });
+
+      if (chipDragState.moved) {
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        if (el) {
+          var targetChip = el.closest('.ini-chip[draggable="true"]');
+          if (targetChip && targetChip !== chipDragState.chip) {
+            var toGroupIdx = targetChip.getAttribute('data-groupidx');
+            var toOptIdx = parseInt(targetChip.getAttribute('data-optidx'));
+            if (chipDragState.groupIdx === toGroupIdx && !isNaN(chipDragState.optIdx) && !isNaN(toOptIdx)) {
+              var parsed = getIniParsed();
+              if (parsed.valid && parsed.groups[parseInt(chipDragState.groupIdx)]) {
+                var gi = parseInt(chipDragState.groupIdx);
+                var opt = parsed.groups[gi].options.splice(chipDragState.optIdx, 1)[0];
+                parsed.groups[gi].options.splice(toOptIdx, 0, opt);
+                syncIniToEditor(parsed);
+              }
+            }
+          }
+        }
+      }
+      chipDragState = null;
     });
 
-    grList.addEventListener('drop', function(e) {
-      e.preventDefault();
-      var data = e.dataTransfer.getData('text/plain');
-      if (!data) return;
-
-      // chip 拖拽放置
-      if (data.indexOf('chip:') === 0) {
-        var parts = data.split(':');
-        var fromGroupIdx = parseInt(parts[1]);
-        var fromOptIdx = parseInt(parts[2]);
-        var toChip = e.target.closest('.ini-chip[draggable="true"]');
-        if (!toChip) return;
-        var toGroupIdx = parseInt(toChip.getAttribute('data-groupidx'));
-        var toOptIdx = parseInt(toChip.getAttribute('data-optidx'));
-        if (fromGroupIdx !== toGroupIdx) return; // 只同组内拖拽
-        if (isNaN(fromOptIdx) || isNaN(toOptIdx) || fromOptIdx === toOptIdx) return;
-        var parsed = getIniParsed();
-        if (!parsed.valid || !parsed.groups[fromGroupIdx]) return;
-        var opt = parsed.groups[fromGroupIdx].options.splice(fromOptIdx, 1)[0];
-        parsed.groups[fromGroupIdx].options.splice(toOptIdx, 0, opt);
-        syncIniToEditor(parsed);
-        return;
-      }
-
-      // 策略组拖拽放置
-      if (data.indexOf('group:') === 0) {
-        var fromIdx = parseInt(data.substring(6));
-        var toCard = e.target.closest('.ini-group-card');
-        if (!toCard) return;
-        var toIdx = parseInt(toCard.getAttribute('data-index'));
-        if (isNaN(fromIdx) || isNaN(toIdx) || fromIdx === toIdx) return;
-        var parsed2 = getIniParsed();
-        if (!parsed2.valid) return;
-        var item = parsed2.groups.splice(fromIdx, 1)[0];
-        parsed2.groups.splice(toIdx, 0, item);
-        syncIniToEditor(parsed2);
-      }
-    });
+    document._chipDragGlobal = true;
   }
 }
 
