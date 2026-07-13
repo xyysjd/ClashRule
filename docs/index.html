@@ -1268,7 +1268,7 @@ function renderIniGroups() {
   var html = '';
   for (var i = 0; i < parsed.groups.length; i++) {
     var g = parsed.groups[i];
-    html += '<div class="ini-group-card" data-index="' + i + '">';
+    html += '<div class="ini-group-card" draggable="true" data-index="' + i + '">';
     html += '<div class="ini-group-header">';
     html += '<span class="drag-handle">⠿</span>';
     html += '<span class="ini-group-name">' + escapeHtml(g.name) + '</span>';
