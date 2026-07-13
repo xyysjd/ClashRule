@@ -1351,7 +1351,9 @@ function renderIniGroups() {
 // ============== 拖拽排序 ==============
 
 function enableIniDragDrop() {
-  // 规则集拖拽
+  // 只在首次渲染时绑定一次拖拽事件，后续渲染跳过（容器元素未重建，监听器继续有效）
+  if (window._iniDragBound) return;
+  window._iniDragBound = true;
   var rsList = document.getElementById('iniRulesetList');
   if (rsList) {
     rsList.ondragstart = function(e) {
