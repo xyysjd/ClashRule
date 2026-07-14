@@ -1098,21 +1098,23 @@ function parseIniContent(text) {
 
     if (trimmed.indexOf('ruleset=') === 0) {
       var rest = trimmed.substring(8);
-      var parts = rest.split(',');
-      var name = parts[0].trim();
+      var commaIdx = rest.indexOf(',');
+      if (commaIdx < 0) { result.otherLines.push(line); continue; }
+      var name = rest.substring(0, commaIdx).trim();
+      var urlPart = rest.substring(commaIdx + 1).trim();
       var format = '';
-      var url = '';
-      if (parts.length >= 3) {
-        format = parts[1].trim();
-        url = parts.slice(2).join(',').trim();
-      } else if (parts.length === 2) {
-        url = parts[1].trim();
+      var url = urlPart;
+      // 检测 format:url 模式（如 clash-classic:https://...）
+      var colonIdx = urlPart.indexOf(':');
+      if (colonIdx > 0 && urlPart.indexOf('http://') !== 0 && urlPart.indexOf('https://') !== 0) {
+        format = urlPart.substring(0, colonIdx).trim();
+        url = urlPart.substring(colonIdx + 1).trim();
       }
       result.rulesets.push({
         name: name,
         format: format,
         url: url,
-        isFinal: name === '[]FINAL',
+        isFinal: name === '[]FINAL' || url === '[]FINAL',
       });
       continue;
     }
@@ -1166,8 +1168,11 @@ function serializeIniContent(parsed) {
       for (var r = 0; r < parsed.rulesets.length; r++) {
         var rs = parsed.rulesets[r];
         var parts = ['ruleset=' + rs.name];
-        if (rs.format) parts.push(rs.format);
-        if (rs.url) parts.push(rs.url);
+        if (rs.format) {
+          parts.push(rs.format + ':' + rs.url);
+        } else if (rs.url) {
+          parts.push(rs.url);
+        }
         lines.push(parts.join(','));
       }
       continue;
@@ -1201,8 +1206,11 @@ function serializeIniContent(parsed) {
     for (var r2 = 0; r2 < parsed.rulesets.length; r2++) {
       var rs2 = parsed.rulesets[r2];
       var parts2 = ['ruleset=' + rs2.name];
-      if (rs2.format) parts2.push(rs2.format);
-      if (rs2.url) parts2.push(rs2.url);
+      if (rs2.format) {
+        parts2.push(rs2.format + ':' + rs2.url);
+      } else if (rs2.url) {
+        parts2.push(rs2.url);
+      }
       lines.push(parts2.join(','));
     }
   }
@@ -1258,9 +1266,22 @@ function validateIniOption(value) {
 }
 
 function syncIniToEditor(parsed) {
-  document.getElementById('editorContent').value = serializeIniContent(parsed);
+  var newContent = serializeIniContent(parsed);
+  document.getElementById('editorContent').value = newContent;
   updateEditorInfo();
   renderIniManager();
+  // 同步缓冲区状态，让「推送」按钮正确反映修改
+  if (state.currentFile) {
+    var path = state.currentFile.path;
+    state.fileBuffers[path] = newContent;
+    if (newContent !== state.originalContents[path]) {
+      state.dirtyFiles[path] = true;
+    } else {
+      delete state.dirtyFiles[path];
+    }
+    renderFileList();
+    updateBatchPushButton();
+  }
 }
 
 function renderIniManager() {
