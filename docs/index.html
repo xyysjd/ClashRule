@@ -2004,52 +2004,98 @@ function globalSearch() {
   var keyword = document.getElementById('globalSearchInput').value.trim();
   if (!keyword) return;
 
-  // 搜索所有已加载的文件内容（fileBuffers）
+  // 先显示"搜索中"提示
+  document.getElementById('modalTitle').textContent = '🔍 全局搜索：' + escapeHtml(keyword);
+  document.getElementById('modalBody').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">⏳ 正在搜索所有文件...</div>';
+  document.querySelector('.modal').style.maxWidth = '700px';
+  document.getElementById('modalOverlay').classList.add('show');
+
+  // 异步执行搜索
+  doGlobalSearch(keyword);
+}
+
+async function doGlobalSearch(keyword) {
   var results = {};
+  var total = 0;
+  var searchPromises = [];
+
   for (var i = 0; i < FILE_LIST.length; i++) {
     var f = FILE_LIST[i];
+
+    // 尝试获取内容：优先用缓冲区，否则从 GitHub 拉取
     var content = state.fileBuffers[f.path];
-    if (content === undefined) continue;
-    var lines = content.split('\n');
-    for (var l = 0; l < lines.length; l++) {
-      if (lines[l].toLowerCase().indexOf(keyword.toLowerCase()) >= 0) {
-        if (!results[f.path]) results[f.path] = { file: f, lines: [] };
-        results[f.path].lines.push({ num: l + 1, text: lines[l] });
-      }
+    if (content === undefined) {
+      // 未加载的文件，从 GitHub 拉取
+      var promise = (async function(fileMeta) {
+        try {
+          var result = await getFileSha(fileMeta.path);
+          var fileContent = result.content;
+          // 缓存到缓冲区，后续搜索直接使用
+          state.fileBuffers[fileMeta.path] = fileContent;
+          state.originalContents[fileMeta.path] = fileContent;
+          // 避免重复添加文件状态
+          var found = false;
+          for (var fi = 0; fi < state.files.length; fi++) {
+            if (state.files[fi].path === fileMeta.path) { found = true; break; }
+          }
+          if (!found) state.files.push({ path: fileMeta.path, meta: fileMeta, loaded: true, error: false });
+          renderFileList();
+          return searchInContent(fileMeta, fileContent, keyword);
+        } catch(e) {
+          return null; // 拉取失败跳过
+        }
+      })(f);
+      searchPromises.push(promise);
+    } else {
+      var r = searchInContent(f, content, keyword);
+      if (r) results[f.path] = r;
     }
   }
 
-  var total = 0;
+  // 等待所有远程拉取完成
+  var remoteResults = await Promise.all(searchPromises);
+  for (var ri = 0; ri < remoteResults.length; ri++) {
+    if (remoteResults[ri]) {
+      results[remoteResults[ri].file.path] = remoteResults[ri];
+    }
+  }
+
+  // 统计总数
   for (var p in results) total += results[p].lines.length;
 
-  // 渲染结果弹窗
+  // 渲染结果
   var html = '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">';
-  html += '找到 <strong style="color:var(--text)">' + total + '</strong> 条匹配（仅在已加载文件中搜索，未加载的文件请先点击打开）</div>';
+  html += '找到 <strong style="color:var(--text)">' + total + '</strong> 条匹配（已搜索全部 ' + FILE_LIST.length + ' 个文件）</div>';
 
   if (total === 0) {
     html += '<div class="rule-empty">未找到匹配 "' + escapeHtml(keyword) + '"</div>';
-    document.getElementById('modalTitle').textContent = '🔍 全局搜索';
-    document.getElementById('modalBody').innerHTML = html;
-    document.querySelector('.modal').style.maxWidth = '700px';
-    document.getElementById('modalOverlay').classList.add('show');
-    return;
-  }
-
-  for (var p in results) {
-    var r = results[p];
-    html += '<div class="search-result-file">📄 ' + escapeHtml(r.file.name) + '（' + r.lines.length + ' 条）</div>';
-    for (var li = 0; li < r.lines.length; li++) {
-      var line = r.lines[li];
-      html += '<div class="search-result-match" onclick="closeModal();selectFile(\'' + p + '\')">' +
-        '<span class="search-result-line">' + line.num + '</span>' +
-        '<span class="search-result-text">' + highlightKeyword(line.text.trim(), keyword) + '</span></div>';
+  } else {
+    for (var p in results) {
+      var r = results[p];
+      html += '<div class="search-result-file">📄 ' + escapeHtml(r.file.name) + '（' + r.lines.length + ' 条）</div>';
+      for (var li = 0; li < r.lines.length; li++) {
+        var line = r.lines[li];
+        html += '<div class="search-result-match" onclick="closeModal();selectFile(\'' + p + '\')">' +
+          '<span class="search-result-line">' + line.num + '</span>' +
+          '<span class="search-result-text">' + highlightKeyword(line.text.trim(), keyword) + '</span></div>';
+      }
     }
   }
 
   document.getElementById('modalTitle').textContent = '🔍 全局搜索：' + escapeHtml(keyword);
   document.getElementById('modalBody').innerHTML = html;
-  document.querySelector('.modal').style.maxWidth = '700px';
-  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function searchInContent(fileMeta, content, keyword) {
+  var lines = content.split('\n');
+  var matchedLines = [];
+  for (var l = 0; l < lines.length; l++) {
+    if (lines[l].toLowerCase().indexOf(keyword.toLowerCase()) >= 0) {
+      matchedLines.push({ num: l + 1, text: lines[l] });
+    }
+  }
+  if (matchedLines.length === 0) return null;
+  return { file: fileMeta, lines: matchedLines };
 }
 
 function addPayloadRule() {
