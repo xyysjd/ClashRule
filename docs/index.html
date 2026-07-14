@@ -345,7 +345,7 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
       </div>
       <div class="editor-actions">
         <button class="btn btn-warning btn-sm" onclick="showDiff()">📝 对比</button>
-        <button class="btn btn-primary btn-sm" onclick="saveFile()">💾 保存</button>
+        <button class="btn btn-primary btn-sm" onclick="saveFile()">💾 存到本地</button>
       </div>
     </div>
     <div class="rule-manager" id="ruleManager">
@@ -408,8 +408,8 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
 
     <!-- 提交面板 -->
     <div class="commit-panel" id="commitPanel">
-      <h3>📤 批量提交到 GitHub <span class="dirty-count" id="dirtyCount"></span></h3>
-      <input class="commit-input" id="commitMessage" placeholder="提交说明" value="更新规则">
+      <h3>📤 推送至 GitHub <span class="dirty-count" id="dirtyCount"></span></h3>
+      <input class="commit-input" id="commitMessage" placeholder="推送说明" value="更新规则">
       <div class="commit-progress" id="commitProgress">
         <div class="commit-progress-bar"><div class="commit-progress-fill" id="commitProgressFill"></div></div>
         <div class="commit-progress-text" id="commitProgressText"></div>
@@ -614,7 +614,7 @@ function renderFileList() {
     var statusText = '';
     if (isDirty) {
       status = 'dirty';
-      statusText = '已修改';
+      statusText = '已修改（待推送）';
     } else if (file) {
       status = file.error ? 'error' : 'loaded';
       statusText = file.error ? '加载失败' : '已加载';
@@ -637,13 +637,33 @@ async function refreshAllFiles() {
   try {
     // 验证 token 和仓库是否可访问
     const repoData = await ghApi('');
-    // 不清除 fileBuffers 和 dirtyFiles，保留本地修改
-    if (!state.currentFile) {
-      document.getElementById('editorSection').classList.remove('visible');
+
+    // 如果当前文件已加载且没有未推送修改，则重新从远端拉取内容
+    if (state.currentFile && state.originalContents[state.currentFile.path] !== undefined && !state.dirtyFiles[state.currentFile.path]) {
+      try {
+        var curPath = state.currentFile.path;
+        const result = await getFileSha(curPath);
+        state.originalContents[curPath] = result.content;
+        state.fileBuffers[curPath] = result.content;
+        state.currentFile.sha = result.sha;
+        state.originalContent = result.content;
+        document.getElementById('editorContent').value = result.content;
+        updateEditorInfo();
+        renderRuleManager();
+        renderFileList();
+        updateBatchPushButton();
+      } catch(reloadErr) {
+        // 重新加载失败不阻塞整体刷新提示
+        showToast('重新加载当前文件失败: ' + reloadErr.message, 'error');
+      }
+    } else {
+      if (!state.currentFile) {
+        document.getElementById('editorSection').classList.remove('visible');
+      }
+      renderRuleManager();
+      renderFileList();
+      updateBatchPushButton();
     }
-    renderRuleManager();
-    renderFileList();
-    updateBatchPushButton();
     showToast('已连接: ' + repoData.full_name, 'success');
   } catch(e) {
     var msg = e.message;
@@ -698,11 +718,17 @@ async function selectFile(filePath) {
     return;
   }
 
+  // 请求序号：防止快速切换文件时旧请求覆盖新内容
+  if (!state._fileSeq) state._fileSeq = 0;
+  var mySeq = ++state._fileSeq;
+
   document.getElementById('editorContent').value = '加载中...';
   document.getElementById('editorContent').disabled = true;
 
   try {
     const result = await getFileSha(filePath);
+    // 如果不是最新请求，丢弃结果
+    if (mySeq !== state._fileSeq) return;
     state.currentFile = { path: filePath, sha: result.sha, meta: fileMeta };
     state.originalContent = result.content;
     state.originalContents[filePath] = result.content;
@@ -748,12 +774,39 @@ function updateEditorInfo() {
   document.getElementById('editorSize').textContent = '大小: ' + (size >= 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B');
 }
 
+// 自动从编辑器同步到缓冲区
+function syncCurrentEditorToBuffer() {
+  if (!state.currentFile) return;
+  var content = document.getElementById('editorContent').value;
+  var path = state.currentFile.path;
+  state.fileBuffers[path] = content;
+  if (content !== state.originalContents[path]) {
+    state.dirtyFiles[path] = true;
+  } else {
+    delete state.dirtyFiles[path];
+  }
+  renderFileList();
+  updateBatchPushButton();
+}
+
+// 输入事件：实时同步缓冲区 + 防抖渲染可视化面板
+var _renderTimer = null;
 document.getElementById('editorContent').addEventListener('input', function() {
   updateEditorInfo();
-  renderRuleManager();
+  syncCurrentEditorToBuffer();
+  if (_renderTimer) clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(renderRuleManager, 200);
 });
 
-// 保存当前文件到缓冲区（不再立即弹出提交面板）
+// 离页保护：有未推送修改时阻止意外离开
+window.addEventListener('beforeunload', function(e) {
+  if (getDirtyCount() > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// 保存当前文件到缓冲区（仅在本地，不推送至 GitHub）
 function saveFile() {
   if (!state.currentFile) return;
   var content = document.getElementById('editorContent').value;
@@ -761,7 +814,7 @@ function saveFile() {
   state.fileBuffers[path] = content;
   if (content !== state.originalContents[path]) {
     state.dirtyFiles[path] = true;
-    showToast('✅ ' + state.currentFile.meta.name + ' 已保存（待推送）', 'success');
+    showToast('✅ ' + state.currentFile.meta.name + ' 已保存（存到本地，还需点 📤 全部推送 才会上传 GitHub）', 'success');
   } else {
     delete state.dirtyFiles[path];
     showToast('内容未改变', 'info');
@@ -1188,6 +1241,22 @@ function getIniParsed() {
   return parseIniContent(document.getElementById('editorContent').value);
 }
 
+// 校验 INI 字段值是否包含结构分隔符
+function validateIniField(label, value) {
+  if (!value) return '';
+  if (/[\r\n]/.test(value)) return label + '不能包含换行';
+  // 策略组名/规则集名不能含反引号（custom_proxy_group 分隔符）
+  if (/`/.test(value)) return label + '不能包含反引号 `';
+  return '';
+}
+
+// 校验策略组选项内容
+function validateIniOption(value) {
+  if (!value) return '选项不能为空';
+  if (/[\r\n]/.test(value)) return '选项不能包含换行';
+  return '';
+}
+
 function syncIniToEditor(parsed) {
   document.getElementById('editorContent').value = serializeIniContent(parsed);
   updateEditorInfo();
@@ -1240,6 +1309,8 @@ function renderIniRulesets() {
       '<span class="ini-ruleset-url">' + urlDisplay + '</span>' +
       '</div>' +
       '<div class="rule-actions">' +
+      '<button class="btn btn-sm btn-outline" onclick="moveRuleset(' + i + ',-1)" title="上移">↑</button> ' +
+      '<button class="btn btn-sm btn-outline" onclick="moveRuleset(' + i + ',1)" title="下移">↓</button> ' +
       '<button class="btn btn-warning btn-sm" onclick="editRuleset(' + i + ')">编辑</button> ' +
       '<button class="btn btn-danger btn-sm" onclick="deleteRuleset(' + i + ')">删除</button>' +
       '</div></div>';
@@ -1309,6 +1380,8 @@ function renderIniGroups() {
         '<option value="">自定义...</option><option value="[]DIRECT">[]DIRECT</option><option value="[]REJECT">[]REJECT</option><option value="[]PASS">[]PASS</option></select>' +
         '<input class="ini-input" id="iniGroupOptInput' + i + '" placeholder="选项（如 []手动选择 或 .*）" style="flex:1">' +
         '<button class="btn btn-sm btn-success" onclick="addIniGroupOption(' + i + ')">添加</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="moveIniGroup(' + i + ',-1)" title="上移">↑</button> ' +
+        '<button class="btn btn-sm btn-outline" onclick="moveIniGroup(' + i + ',1)" title="下移">↓</button> ' +
         '<button class="btn btn-sm btn-outline" onclick="saveIniGroup(' + i + ')">保存</button>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteIniGroup(' + i + ')">删除组</button>' +
         '</div>';
@@ -1323,6 +1396,8 @@ function renderIniGroups() {
         '</div>';
       html += '<div class="ini-form-actions">' +
         '<button class="btn btn-sm btn-success" onclick="saveIniGroup(' + i + ')">保存</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="moveIniGroup(' + i + ',-1)" title="上移">↑</button> ' +
+        '<button class="btn btn-sm btn-outline" onclick="moveIniGroup(' + i + ',1)" title="下移">↓</button> ' +
         '<button class="btn btn-sm btn-danger" onclick="deleteIniGroup(' + i + ')">删除组</button>' +
         '</div>';
     }
@@ -1537,19 +1612,19 @@ function onIniGroupTypeChange(index) {
   var parsed = getIniParsed();
   if (!parsed.valid || !parsed.groups[index]) return;
   var newType = document.getElementById('iniGroupType' + index).value;
+  var oldType = parsed.groups[index].type;
 
-  // 类型改变了，需要转换数据结构
-  if (parsed.groups[index].type !== newType) {
+  if (oldType !== newType) {
     if (newType === 'select') {
-      // 从 url-test 切到 select：保留 filter 为默认选项
+      // 非 select → select：保留 filter 作为选项
       parsed.groups[index].options = parsed.groups[index].filter ? [parsed.groups[index].filter] : ['[]DIRECT'];
       parsed.groups[index].filter = '';
       parsed.groups[index].testUrl = '';
       parsed.groups[index].interval = '300';
       parsed.groups[index].tolerance = '';
       parsed.groups[index].failures = '';
-    } else {
-      // 从 select 切到 url-test：继承第一个选项作为 filter
+    } else if (oldType === 'select') {
+      // select → 非 select：保留第一个选项作为 filter
       parsed.groups[index].filter = parsed.groups[index].options.length > 0 ? parsed.groups[index].options[0] : '';
       parsed.groups[index].options = [];
       parsed.groups[index].testUrl = 'http://www.gstatic.com/generate_204';
@@ -1557,6 +1632,7 @@ function onIniGroupTypeChange(index) {
       parsed.groups[index].tolerance = '';
       parsed.groups[index].failures = '';
     }
+    // 非 select ↔ 非 select（url-test/fallback/load-balance 互切）：保留所有参数不变
     parsed.groups[index].type = newType;
   }
 
@@ -1567,11 +1643,18 @@ function updateIniGroup(index) {
   var parsed = getIniParsed();
   if (!parsed.valid || !parsed.groups[index]) return;
 
-  parsed.groups[index].name = document.getElementById('iniGroupName' + index).value.trim();
+  var name = document.getElementById('iniGroupName' + index).value.trim();
+  var nameErr = validateIniField('策略组名称', name);
+  if (nameErr) { showToast(nameErr, 'error'); return; }
+
+  parsed.groups[index].name = name;
   parsed.groups[index].type = document.getElementById('iniGroupType' + index).value;
 
   if (parsed.groups[index].type !== 'select') {
-    parsed.groups[index].filter = document.getElementById('iniGroupFilter' + index).value.trim();
+    var filter = document.getElementById('iniGroupFilter' + index).value.trim();
+    var filterErr = validateIniField('正则筛选', filter);
+    if (filterErr) { showToast(filterErr, 'error'); return; }
+    parsed.groups[index].filter = filter;
     parsed.groups[index].testUrl = document.getElementById('iniGroupUrl' + index).value.trim();
     parsed.groups[index].interval = document.getElementById('iniGroupInterval' + index).value.trim() || '300';
     var extra = document.getElementById('iniGroupExtra' + index).value.trim();
@@ -1595,7 +1678,8 @@ function addIniGroupOption(index) {
   var select = document.getElementById('iniGroupOptSelect' + index);
   var input = document.getElementById('iniGroupOptInput' + index);
   var val = select.value || input.value.trim();
-  if (!val) { showToast('请输入选项', 'error'); return; }
+  var optErr = validateIniOption(val);
+  if (optErr) { showToast(optErr, 'error'); return; }
 
   parsed.groups[index].options.push(val);
   syncIniToEditor(parsed);
@@ -1619,6 +1703,9 @@ function addIniGroup() {
   var name = nameEl.value.trim();
   var type = typeEl.value;
   if (!name) { showToast('请输入策略组名称', 'error'); return; }
+
+  var nameErr = validateIniField('策略组名称', name);
+  if (nameErr) { showToast(nameErr, 'error'); return; }
 
   var parsed = getIniParsed();
   if (!parsed.valid) {
@@ -1674,6 +1761,9 @@ function confirmAddRuleset() {
   if (!name) { showToast('请输入规则集名称', 'error'); return; }
   if (!url) { showToast('请输入 URL 或勾选 []FINAL', 'error'); return; }
 
+  var nameErr = validateIniField('规则集名称', name);
+  if (nameErr) { showToast(nameErr, 'error'); return; }
+
   var parsed = getIniParsed();
   if (!parsed.valid) return;
   parsed.rulesets.push({ name: name, format: format, url: url, isFinal: url === '[]FINAL' });
@@ -1711,6 +1801,9 @@ function confirmEditRuleset(index) {
   if (!name) { showToast('请输入规则集名称', 'error'); return; }
   if (!url) { showToast('请输入 URL', 'error'); return; }
 
+  var nameErr = validateIniField('规则集名称', name);
+  if (nameErr) { showToast(nameErr, 'error'); return; }
+
   var parsed = getIniParsed();
   if (!parsed.valid || !parsed.rulesets[index]) return;
   parsed.rulesets[index].name = name;
@@ -1729,6 +1822,28 @@ function deleteRuleset(index) {
   parsed.rulesets.splice(index, 1);
   syncIniToEditor(parsed);
   showToast('规则集已删除', 'success');
+}
+
+// 规则集上移/下移
+function moveRuleset(index, direction) {
+  var parsed = getIniParsed();
+  if (!parsed.valid) return;
+  var newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= parsed.rulesets.length) return;
+  var item = parsed.rulesets.splice(index, 1)[0];
+  parsed.rulesets.splice(newIndex, 0, item);
+  syncIniToEditor(parsed);
+}
+
+// 策略组上移/下移
+function moveIniGroup(index, direction) {
+  var parsed = getIniParsed();
+  if (!parsed.valid) return;
+  var newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= parsed.groups.length) return;
+  var item = parsed.groups.splice(index, 1)[0];
+  parsed.groups.splice(newIndex, 0, item);
+  syncIniToEditor(parsed);
 }
 
 function validatePayloadRule(type, value, option) {
@@ -1843,7 +1958,7 @@ function addPayloadRule() {
   optionInput.value = '';
   updateEditorInfo();
   renderRuleManager();
-  showToast(validation.message || '规则已添加，请保存后提交', validation.message ? 'info' : 'success');
+  showToast(validation.message || '规则已添加（需点 📤 全部推送 上传至 GitHub）', validation.message ? 'info' : 'success');
 }
 
 function deletePayloadRule(index) {
@@ -1857,7 +1972,45 @@ function deletePayloadRule(index) {
   document.getElementById('editorContent').value = serializePayloadYaml(parsed);
   updateEditorInfo();
   renderRuleManager();
-  showToast('规则已删除，请保存后提交', 'success');
+  showToast('规则已删除（需点 📤 全部推送 上传至 GitHub）', 'success');
+}
+
+// Myers 差异算法：计算最小编辑操作（LCS 回溯）
+function computeDiff(oldLines, newLines) {
+  var oldLen = oldLines.length, newLen = newLines.length;
+  if (oldLen === 0) return newLines.map(function(c) { return { type: 'add', line: c }; });
+  if (newLen === 0) return oldLines.map(function(c) { return { type: 'del', line: c }; });
+
+  // 构建 LCS 长度表（二维）
+  var dp = [];
+  for (var i = 0; i <= oldLen; i++) {
+    dp[i] = new Array(newLen + 1);
+    for (var j = 0; j <= newLen; j++) dp[i][j] = 0;
+  }
+  for (var i = 1; i <= oldLen; i++) {
+    for (var j = 1; j <= newLen; j++) {
+      dp[i][j] = oldLines[i - 1] === newLines[j - 1]
+        ? dp[i - 1][j - 1] + 1
+        : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+
+  // 回溯生成 diff 操作序列
+  var result = [];
+  var i = oldLen, j = newLen;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      result.unshift({ type: 'same', line: oldLines[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ type: 'add', line: newLines[j - 1] });
+      j--;
+    } else {
+      result.unshift({ type: 'del', line: oldLines[i - 1] });
+      i--;
+    }
+  }
+  return result;
 }
 
 function showDiff() {
@@ -1871,20 +2024,14 @@ function showDiff() {
   }
   var origLines = original.split('\n');
   var currLines = current.split('\n');
+  var diffOps = computeDiff(origLines, currLines);
   var diffHtml = '';
-  var maxLen = Math.max(origLines.length, currLines.length);
-  for (var i = 0; i < maxLen; i++) {
-    var o = origLines[i] !== undefined ? origLines[i] : '';
-    var c = currLines[i] !== undefined ? currLines[i] : '';
-    if (o !== c) {
-      if (o && currLines[i] !== undefined) {
-        diffHtml += '<div class="diff-removed">- ' + escapeHtml(o) + '</div>';
-        diffHtml += '<div class="diff-added">+ ' + escapeHtml(c) + '</div>';
-      } else if (o === '' && currLines[i] !== undefined) {
-        diffHtml += '<div class="diff-added">+ ' + escapeHtml(c) + '</div>';
-      } else {
-        diffHtml += '<div class="diff-removed">- ' + escapeHtml(o) + '</div>';
-      }
+  for (var di = 0; di < diffOps.length; di++) {
+    var op = diffOps[di];
+    if (op.type === 'add') {
+      diffHtml += '<div class="diff-added">+ ' + escapeHtml(op.line) + '</div>';
+    } else if (op.type === 'del') {
+      diffHtml += '<div class="diff-removed">- ' + escapeHtml(op.line) + '</div>';
     }
   }
   // 显示对比
@@ -1894,9 +2041,12 @@ function showDiff() {
   document.querySelector('.modal').style.maxWidth = '700px';
 }
 
-// ============== 点击外部关闭模态框 ==============
+// ============== 点击外部 + 键盘关闭模态框 ==============
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
 });
 
 // ============== 初始化 ==============
