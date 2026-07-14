@@ -290,7 +290,23 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
 .ini-chip-remove:hover { opacity: 1; }
 .ini-add-chip-row { display: flex; gap: 6px; margin-left: 88px; }
 
-/* 拖拽排序 */
+/* 全局搜索 */
+.global-search-wrapper { display: flex; gap: 8px; align-items: center; flex: 1; min-width: 180px; max-width: 380px; position: relative; }
+.global-search-wrapper input {
+  flex: 1; background: var(--accent); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 12px; border-radius: 4px; font-size: 13px;
+}
+.global-search-wrapper input:focus { outline: none; border-color: var(--primary); }
+.global-search-wrapper input::placeholder { color: var(--muted); }
+.search-result-file { font-weight: 600; color: var(--primary); margin: 10px 0 4px; font-size: 13px; }
+.search-result-match {
+  padding: 3px 6px; font-family: 'Fira Code', 'Cascadia Code', Consolas, monospace; font-size: 12px;
+  cursor: pointer; border-radius: 3px; display: flex; gap: 8px; align-items: baseline;
+}
+.search-result-match:hover { background: rgba(233,69,96,0.1); }
+.search-result-line { color: var(--muted); min-width: 40px; text-align: right; user-select: none; }
+.search-result-text { color: var(--text); word-break: break-all; }
+.search-result-highlight { color: var(--warning); font-weight: 600; }
 .drag-handle { cursor: grab; color: var(--muted); font-size: 16px; user-select: none; padding: 0 4px; }
 .drag-handle:active { cursor: grabbing; }
 .ini-ruleset-item[draggable="true"] { cursor: grab; }
@@ -310,6 +326,9 @@ header h1 small { font-size: 13px; color: var(--muted); font-weight: normal; }
 
 <header>
   <h1>⚡ Clash 规则编辑器 <small>在线编辑 · 一键推送</small></h1>
+  <div class="global-search-wrapper">
+    <input id="globalSearchInput" placeholder="🔍 搜索所有规则..." oninput="debouncedGlobalSearch()">
+  </div>
   <div class="header-actions">
     <button class="btn btn-success" id="batchPushBtn" onclick="showBatchCommit()">📤 全部推送</button>
     <button class="btn btn-outline" onclick="refreshAllFiles()">🔄 刷新</button>
@@ -1956,6 +1975,83 @@ function filterPayloadRules() {
   renderRuleManager();
 }
 
+// ============== 全局搜索 ==============
+
+function highlightKeyword(text, keyword) {
+  if (!keyword) return escapeHtml(text);
+  var lower = text.toLowerCase();
+  var kwLower = keyword.toLowerCase();
+  var result = '';
+  var last = 0;
+  var idx = lower.indexOf(kwLower, last);
+  while (idx >= 0) {
+    result += escapeHtml(text.substring(last, idx));
+    result += '<span class="search-result-highlight">' + escapeHtml(text.substring(idx, idx + keyword.length)) + '</span>';
+    last = idx + keyword.length;
+    idx = lower.indexOf(kwLower, last);
+  }
+  result += escapeHtml(text.substring(last));
+  return result;
+}
+
+var _globalSearchTimer = null;
+function debouncedGlobalSearch() {
+  if (_globalSearchTimer) clearTimeout(_globalSearchTimer);
+  _globalSearchTimer = setTimeout(globalSearch, 300);
+}
+
+function globalSearch() {
+  var keyword = document.getElementById('globalSearchInput').value.trim();
+  if (!keyword) return;
+
+  // 搜索所有已加载的文件内容（fileBuffers）
+  var results = {};
+  for (var i = 0; i < FILE_LIST.length; i++) {
+    var f = FILE_LIST[i];
+    var content = state.fileBuffers[f.path];
+    if (content === undefined) continue;
+    var lines = content.split('\n');
+    for (var l = 0; l < lines.length; l++) {
+      if (lines[l].toLowerCase().indexOf(keyword.toLowerCase()) >= 0) {
+        if (!results[f.path]) results[f.path] = { file: f, lines: [] };
+        results[f.path].lines.push({ num: l + 1, text: lines[l] });
+      }
+    }
+  }
+
+  var total = 0;
+  for (var p in results) total += results[p].lines.length;
+
+  // 渲染结果弹窗
+  var html = '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">';
+  html += '找到 <strong style="color:var(--text)">' + total + '</strong> 条匹配（仅在已加载文件中搜索，未加载的文件请先点击打开）</div>';
+
+  if (total === 0) {
+    html += '<div class="rule-empty">未找到匹配 "' + escapeHtml(keyword) + '"</div>';
+    document.getElementById('modalTitle').textContent = '🔍 全局搜索';
+    document.getElementById('modalBody').innerHTML = html;
+    document.querySelector('.modal').style.maxWidth = '700px';
+    document.getElementById('modalOverlay').classList.add('show');
+    return;
+  }
+
+  for (var p in results) {
+    var r = results[p];
+    html += '<div class="search-result-file">📄 ' + escapeHtml(r.file.name) + '（' + r.lines.length + ' 条）</div>';
+    for (var li = 0; li < r.lines.length; li++) {
+      var line = r.lines[li];
+      html += '<div class="search-result-match" onclick="closeModal();selectFile(\'' + p + '\')">' +
+        '<span class="search-result-line">' + line.num + '</span>' +
+        '<span class="search-result-text">' + highlightKeyword(line.text.trim(), keyword) + '</span></div>';
+    }
+  }
+
+  document.getElementById('modalTitle').textContent = '🔍 全局搜索：' + escapeHtml(keyword);
+  document.getElementById('modalBody').innerHTML = html;
+  document.querySelector('.modal').style.maxWidth = '700px';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
 function addPayloadRule() {
   var typeInput = document.getElementById('ruleTypeInput');
   var valueInput = document.getElementById('ruleValueInput');
@@ -2084,6 +2180,18 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('tokenInput').value = state.token;
 document.getElementById('repoInput').value = state.repo;
 document.getElementById('branchInput').value = state.branch;
+
+// 全局搜索 Enter 立即搜索，Escape 清除
+document.getElementById('globalSearchInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    if (_globalSearchTimer) clearTimeout(_globalSearchTimer);
+    globalSearch();
+  } else if (e.key === 'Escape') {
+    this.value = '';
+    this.blur();
+  }
+});
+
 renderFileList();
 updateBatchPushButton();
 refreshAllFiles();
