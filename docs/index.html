@@ -1872,6 +1872,16 @@ function renderRuleManager() {
   var count = document.getElementById('ruleCount');
   if (!manager || !list || !count) return;
 
+  // 始终同步 INI 面板可见性（根据当前文件类型）
+  var iniManager = document.getElementById('iniManager');
+  if (iniManager) {
+    if (state.currentFile && isIniFile(state.currentFile.meta)) {
+      iniManager.classList.add('visible');
+    } else {
+      iniManager.classList.remove('visible');
+    }
+  }
+
   // 如果是 INI 文件，隐藏 YAML 规则管理并显示 INI 管理
   if (state.currentFile && isIniFile(state.currentFile.meta)) {
     manager.classList.remove('visible');
