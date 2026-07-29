@@ -1,22 +1,12 @@
 # 内容：Emby Proxy
 payload:
   - DOMAIN-SUFFIX,lite.cn2gias.uk
-  - DOMAIN-SUFFIX,emby.jingzhe.pro
-  - DOMAIN-SUFFIX,zoxfree.3767483.xyz
-  - DOMAIN-SUFFIX,emby1.123456789.lol
-  - DOMAIN-SUFFIX,5msky.com
-  - DOMAIN-SUFFIX,jmsuper.com
   - DOMAIN-SUFFIX,emby.wtf
   - DOMAIN-SUFFIX,emby.pro
   - DOMAIN-SUFFIX,ccemby.tk
   - DOMAIN-SUFFIX,carryz.net
   - DOMAIN-SUFFIX,embyplus.org
-  - DOMAIN,789.123456.al
-  - DOMAIN,a.nel.cloudflare.com
-  - DOMAIN-SUFFIX,285286.xyz
   - DOMAIN-SUFFIX,emby.ws
-  - DOMAIN-SUFFIX,9521732.xyz
-  - DOMAIN-SUFFIX,infinityfly.top
   - DOMAIN-SUFFIX,coemn.com
   - DOMAIN-SUFFIX,feiniu.lol
   - IP-CIDR,129.150.48.48/32,no-resolve
