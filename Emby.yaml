@@ -23,3 +23,4 @@ payload:
   - IP-CIDR,74.50.80.23/32,no-resolve
   - IP-CIDR,89.58.18.111/32,no-resolve
   - DOMAIN-SUFFIX,feimu.tv
+  - DOMAIN-SUFFIX,ea.eoos.top
