@@ -1,8 +1,6 @@
 # 内容：Emby Proxy
 payload:
   - DOMAIN-SUFFIX,lite.cn2gias.uk
-  - DOMAIN-SUFFIX,emby.wtf
-  - DOMAIN-SUFFIX,emby.pro
   - DOMAIN-SUFFIX,ccemby.tk
   - DOMAIN-SUFFIX,carryz.net
   - DOMAIN-SUFFIX,embyplus.org
