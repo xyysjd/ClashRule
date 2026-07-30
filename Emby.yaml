@@ -12,3 +12,4 @@ payload:
   - IP-CIDR,89.58.18.111/32,no-resolve
   - DOMAIN-SUFFIX,feimu.tv
   - DOMAIN-SUFFIX,ea.eoos.top
+  - DOMAIN-SUFFIX,shrekmedia.org
